@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#FFC27A"/><stop offset="1" stop-color="#E9573A"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFEFA"/><stop offset="1" stop-color="#F0E4CE"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#7A2410" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <path d="M0 56 A56 56 0 0 1 56 0 H200 A56 56 0 0 1 256 56 V110 C180 92 80 92 0 120 Z" fill="url(#gloss)"/>
+  <g transform="rotate(-6 128 128)" filter="url(#shadow)">
+    <path d="M72 58 H170 L206 94 V182 A18 18 0 0 1 188 200 H72 A18 18 0 0 1 54 182 V76 A18 18 0 0 1 72 58 Z" fill="url(#paper)"/>
+    <path d="M170 58 V82 A12 12 0 0 0 182 94 H206 Z" fill="#E2CFAE"/>
+    <polyline points="84,166 84,112 108,140 132,112 132,166" fill="none" stroke="#3A2A20" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <g stroke="#E9573A" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <line x1="170" y1="116" x2="170" y2="164"/>
+      <polyline points="152,148 170,166 188,148"/>
+    </g>
+  </g>
+</svg>

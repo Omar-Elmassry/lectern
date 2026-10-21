@@ -1,0 +1,30 @@
+name: Bug report
+description: Something renders wrong or doesn't work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you see instead? Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: markdown
+    attributes:
+      label: Markdown that reproduces it
+      description: The smallest snippet that shows the problem.
+      render: markdown
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Lectern version, VS Code version and OS (Help > About).
+      placeholder: Lectern 1.0.0, VS Code 1.105, Windows 11
+    validations:
+      required: true
+  - type: dropdown
+    id: palette
+    attributes:
+      label: Reading palette
+      options: [Editor, Light, Sepia, Dark, Black, Not relevant]

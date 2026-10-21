@@ -1,0 +1,190 @@
+{
+  "name": "lectern",
+  "displayName": "Lectern: Markdown Reader",
+  "description": "A calm, distraction-free reading view for Markdown in VS Code: clean typography, five reading themes, outline, callouts, math, Mermaid diagrams, clickable task lists and wiki links.",
+  "version": "1.0.0",
+  "publisher": "OmarElmasry",
+  "author": {
+    "name": "Omar Elmasry"
+  },
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#FDF0E3",
+    "theme": "light"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Omar-Elmassry/lectern.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Omar-Elmassry/lectern/issues"
+  },
+  "homepage": "https://github.com/Omar-Elmassry/lectern#readme",
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "reader",
+    "reading mode",
+    "preview",
+    "obsidian",
+    "callouts",
+    "wiki links",
+    "math",
+    "katex",
+    "mermaid",
+    "diagrams",
+    "notes",
+    "zen"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "lectern.reader",
+        "displayName": "Reading View",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          },
+          {
+            "filenamePattern": "*.mdx"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "lectern.open",
+        "title": "Open in Reading View",
+        "category": "Lectern",
+        "icon": "$(book)",
+        "enablement": "resourceLangId == markdown || resourceExtname == .mdx"
+      },
+      {
+        "command": "lectern.openSource",
+        "title": "Open Markdown Source",
+        "category": "Lectern",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "lectern.openSettings",
+        "title": "Open Settings",
+        "category": "Lectern"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "lectern.open",
+          "group": "navigation",
+          "when": "(editorLangId == markdown || resourceExtname == .mdx) && !activeCustomEditorId"
+        },
+        {
+          "command": "lectern.openSource",
+          "group": "navigation",
+          "when": "activeCustomEditorId == 'lectern.reader'"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "lectern.open",
+          "group": "navigation",
+          "when": "resourceLangId == markdown || resourceExtname == .mdx"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "lectern.open",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "(editorLangId == markdown || resourceExtname == .mdx) && !activeCustomEditorId"
+      },
+      {
+        "command": "lectern.openSource",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "activeCustomEditorId == 'lectern.reader'"
+      }
+    ],
+    "configuration": {
+      "title": "Lectern",
+      "properties": {
+        "lectern.backgroundMode": {
+          "type": "string",
+          "enum": [
+            "editor",
+            "light",
+            "sepia",
+            "dark",
+            "black"
+          ],
+          "default": "editor",
+          "description": "Background mode: Editor follows the VS Code theme; the others are fixed reading palettes."
+        },
+        "lectern.readingWidth": {
+          "type": "number",
+          "default": 760,
+          "minimum": 480,
+          "maximum": 1600,
+          "description": "Maximum width (px) of the reading column."
+        },
+        "lectern.fontFamily": {
+          "type": "string",
+          "default": "",
+          "description": "Font family for reading text. Empty uses the default stack."
+        },
+        "lectern.fontSize": {
+          "type": "number",
+          "default": 18,
+          "minimum": 12,
+          "maximum": 28,
+          "description": "Font size (px) for reading text."
+        },
+        "lectern.lineHeight": {
+          "type": "number",
+          "default": 1.7,
+          "minimum": 1.2,
+          "maximum": 2.4,
+          "description": "Line height multiplier for reading text."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "node esbuild.mjs --production",
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "open": "code --extensionDevelopmentPath=. sample",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node scripts/test.mjs",
+    "screenshots": "node esbuild.mjs && node scripts/screenshots.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "18.x",
+    "@types/vscode": "~1.82.0",
+    "esbuild": "^0.25.0",
+    "happy-dom": "^21.0.3",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "marked": "^13.0.0",
+    "marked-highlight": "^2.1.0",
+    "highlight.js": "^11.9.0",
+    "gemoji": "^8.1.0",
+    "katex": "^0.19.0",
+    "mermaid": "^12.2.0"
+  }
+}

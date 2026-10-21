@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # release.yml runs these same checks before it publishes.
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run compile
+      - run: node scripts/webtest.mjs
+      - run: node scripts/hosttest.mjs
+      - name: Package
+        run: npx --yes @vscode/vsce package -o lectern.vsix
+      - name: Third-party notices are up to date
+        run: git diff --exit-code THIRD_PARTY_NOTICES.md
+      - uses: actions/upload-artifact@v7
+        if: matrix.os == 'ubuntu-24.04'
+        with:
+          name: lectern-vsix
+          path: lectern.vsix

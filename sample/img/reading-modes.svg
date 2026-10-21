@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="200" viewBox="0 0 640 200" font-family="system-ui, sans-serif" font-size="15">
+  <rect x="10" y="20" width="110" height="150" rx="12" fill="#ffffff" stroke="#d8dee4"/>
+  <rect x="135" y="20" width="110" height="150" rx="12" fill="#f8f1e4" stroke="#e0d3b8"/>
+  <rect x="260" y="20" width="110" height="150" rx="12" fill="#1e2127" stroke="#3a3f46"/>
+  <rect x="385" y="20" width="110" height="150" rx="12" fill="#000000" stroke="#33373d"/>
+  <rect x="510" y="20" width="110" height="150" rx="12" fill="#1f1f1f" stroke="#0078d4" stroke-dasharray="6 4"/>
+  <g fill="none" stroke-width="5" stroke-linecap="round">
+    <path d="M30 60h70M30 80h55M30 100h65" stroke="#1f2328"/>
+    <path d="M155 60h70M155 80h55M155 100h65" stroke="#46392a"/>
+    <path d="M280 60h70M280 80h55M280 100h65" stroke="#d6d9de"/>
+    <path d="M405 60h70M405 80h55M405 100h65" stroke="#cfd3d8"/>
+    <path d="M530 60h70M530 80h55M530 100h65" stroke="#cccccc"/>
+  </g>
+  <g text-anchor="middle" fill="#57606a">
+    <text x="65" y="195">Light</text><text x="190" y="195">Sepia</text><text x="315" y="195">Dark</text>
+    <text x="440" y="195">Black</text><text x="565" y="195">Editor</text>
+  </g>
+</svg>

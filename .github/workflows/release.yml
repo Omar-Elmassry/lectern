@@ -1,0 +1,90 @@
+name: Release
+
+# Pushing a tag such as v1.0.0 checks the tag and changelog, runs the CI checks, then
+# publishes the VSIX they built to GitHub Releases, the VS Code Marketplace and Open VSX.
+# Needs the repository secrets VSCE_PAT and OVSX_PAT (see docs/development.md).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tag matches package.json version
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="${{ steps.version.outputs.version }}" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on && /^\[[^]]*\]: / { next }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::CHANGELOG.md has no notes under ## [${{ steps.version.outputs.version }}]"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: notes.md
+
+  checks:
+    needs: verify
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: [verify, checks]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      VSIX: lectern-${{ needs.verify.outputs.version }}.vsix
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          name: lectern-vsix
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+      - run: mv lectern.vsix "$VSIX"
+      # Each step skips work that is already done, so a failed run can be re-run.
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$VSIX" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$VSIX" --title "Lectern ${{ needs.verify.outputs.version }}" --notes-file notes.md --verify-tag
+          fi
+      - name: VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then echo "::error::Repository secret VSCE_PAT is not set"; exit 1; fi
+          npx --yes @vscode/vsce publish --packagePath "$VSIX" --skip-duplicate
+      - name: Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then echo "::error::Repository secret OVSX_PAT is not set"; exit 1; fi
+          npx --yes ovsx publish "$VSIX" --skip-duplicate
