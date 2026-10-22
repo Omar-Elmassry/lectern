@@ -6,6 +6,18 @@ All notable changes to Lectern are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-22
+
+### Fixed
+
+- The VS Marketplace badges on the extension page no longer show "retired badge".
+
+### Changed
+
+- The README links to GitHub Releases, where every version's VSIX can be downloaded,
+  and lists the editors built on VS Code that Lectern works in (Cursor, Windsurf,
+  Antigravity, VSCodium).
+
 ## [1.0.0] - 2026-10-21
 
 The first release of Lectern: a calm, distraction-free reading view for Markdown.
@@ -56,5 +68,6 @@ The first release of Lectern: a calm, distraction-free reading view for Markdown
 - Scripts in Markdown never run, links can't trigger VS Code commands, and formulas and
   diagrams can't add links or scripts.
 
-[Unreleased]: https://github.com/Omar-Elmassry/lectern/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Omar-Elmassry/lectern/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Omar-Elmassry/lectern/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Omar-Elmassry/lectern/releases/tag/v1.0.0

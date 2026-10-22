@@ -5,7 +5,7 @@ const pkg = {
   displayName: "Lectern: Markdown Reader",
   description:
     "A calm, distraction-free reading view for Markdown in VS Code: clean typography, five reading themes, outline, callouts, math, Mermaid diagrams, clickable task lists and wiki links.",
-  version: "1.0.0",
+  version: "1.0.1",
   publisher: "OmarElmasry",
   author: { name: "Omar Elmasry" },
   license: "MIT",
