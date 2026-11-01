@@ -47,13 +47,19 @@ export function highlightWords(root: HTMLElement, summary: DiffSummary, info: Di
 
 /** Ring the task boxes that were ticked or unticked, which word marks can't show. */
 function markTaskChanges(block: HTMLElement, other: HTMLElement): void {
-  const mine = block.querySelectorAll<HTMLInputElement>("input.task-cb");
-  const theirs = other.querySelectorAll<HTMLInputElement>("input.task-cb");
-  if (mine.length !== theirs.length) {
-    return;
-  }
-  mine.forEach((cb, i) => {
-    if (cb.checked !== theirs[i].checked) {
+  const tasks = (el: HTMLElement) =>
+    [...el.querySelectorAll<HTMLInputElement>("input.task-cb")].map((cb) => ({
+      cb,
+      text: (cb.closest("li")?.textContent ?? "").trim(),
+    }));
+  const mine = tasks(block);
+  const theirs = tasks(other);
+  // Match tasks by their text, so items added or removed around them don't matter;
+  // a task whose text also changed is matched by position when the counts agree.
+  const byText = new Map(theirs.map((t) => [t.text, t.cb.checked]));
+  mine.forEach(({ cb, text }, i) => {
+    const was = byText.has(text) ? byText.get(text) : mine.length === theirs.length ? theirs[i].cb.checked : undefined;
+    if (was !== undefined && was !== cb.checked) {
       cb.classList.add("diff-task");
       cb.title = cb.checked ? "Ticked in this version" : "Not ticked in this version";
     }

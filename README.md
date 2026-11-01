@@ -58,6 +58,30 @@ the Command Palette.
 
 ## Features
 
+### See what changed
+
+Read your changes the way they'll look, not as lines of Markdown. In a diff of a
+Markdown file (for example after clicking a changed file in **Source Control**), press
+**`Ctrl+Alt+R`** or click the **book icon**. Lectern shows the old and new versions side
+by side:
+
+- **Added** blocks are green and **removed** blocks are red, with a dashed line on the
+  other side where they were.
+- **Changed** blocks are light red on the left (the old text) and light green on the
+  right (the new text). The words that changed are highlighted more strongly.
+- A task box that was ticked or unticked has a **ring** around it. Done tasks are not
+  struck through in a diff, so a line through text always means it was removed.
+- Both sides **scroll together**. The bar at the top counts the changes, jumps to the
+  previous or next one (**`Alt+↑`** / **`Alt+↓`**), and **Text diff** goes back to the
+  normal diff. `Ctrl+Alt+R` does that too.
+
+<p align="center">
+  <img src="images/screenshots/diff.png" alt="A Markdown diff in Lectern. Left, the old version in red: the words Lisbon, 12, at and market marked, a paragraph about the hotel that was removed, and the task Order the train tickets not ticked. Right, the new version in green: Porto, 14, by and river marked, a new Getting there callout, the same task now ticked with a ring around its box, and a new task Ask about food allergies.">
+</p>
+
+To open every Markdown diff this way, run **Lectern: Toggle Opening Markdown Changes in
+Reading View** from the Command Palette. Run it again to go back to text diffs.
+
 ### A palette for every light
 
 Read in **Light**, **Sepia**, **Dark** or **Black**, or let **Editor** follow your VS Code
@@ -169,30 +193,6 @@ to every file.
 <p align="center">
   <img src="images/screenshots/settings.png" alt="The reading settings panel in the Sepia palette">
 </p>
-
-### See what changed
-
-Read your changes the way they'll look, not as lines of Markdown. In a diff of a
-Markdown file (for example after clicking a changed file in **Source Control**), press
-**`Ctrl+Alt+R`** or click the **book icon**. Lectern shows the old and new versions side
-by side:
-
-- **Added** blocks are green and **removed** blocks are red, with a dashed line on the
-  other side where they were.
-- **Changed** blocks are light red on the left (the old text) and light green on the
-  right (the new text). The words that changed are highlighted more strongly.
-- A task box that was ticked or unticked has a **ring** around it. Done tasks are not
-  struck through in a diff, so a line through text always means it was removed.
-- Both sides **scroll together**. The bar at the top counts the changes, jumps to the
-  previous or next one (**`Alt+↑`** / **`Alt+↓`**), and **Text diff** goes back to the
-  normal diff. `Ctrl+Alt+R` does that too.
-
-<p align="center">
-  <img src="images/screenshots/diff.png" alt="A Markdown diff in Lectern: the old version on the left in red with a removed paragraph and the changed words marked, the new version on the right with added words and an added paragraph in green">
-</p>
-
-To open every Markdown diff this way, run **Lectern: Toggle Opening Markdown Changes in
-Reading View** from the Command Palette. Run it again to go back to text diffs.
 
 ### And the little things
 

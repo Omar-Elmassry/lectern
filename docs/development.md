@@ -119,8 +119,13 @@ Set `CHROME` / `FFMPEG` if they are not found; without ffmpeg only the stills ar
 `node scripts/screenshots.mjs --gif-only` re-records just the GIF, `--stills-only` skips
 it, `--diff-only` makes just `diff.png` and `--still=<name>` makes one still (e.g.
 `--still=mindmap`). The stills are the `stills` / `tiles` lists,
-`shootDiff()` diffs `sample/README.md` against an older version made by `DIFF_EDITS`,
-and the GIF storyboard is `recordDemo()`. Run it after visible UI changes so the README stays accurate.
+`shootDiff()` diffs `sample/diff/before.md` against `sample/diff/after.md` (one short
+note with each kind of change), and the GIF storyboard is `recordDemo()`. Run it after
+visible UI changes so the README stays accurate.
+
+`node scripts/screenshots.mjs --features` records a short video of the newest features
+for release posts (`recordFeatures()`): an MP4 and a smaller GIF in `out/features/`,
+which is not committed. Update its storyboard for each release.
 
 ### Releasing
 1. Move the **Unreleased** notes in `CHANGELOG.md` under the new version.

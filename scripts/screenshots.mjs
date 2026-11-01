@@ -102,13 +102,36 @@ function tilesPage({ width, height, modes, columns = modes.length, scale = 0.6, 
 // Installed in the top page; drives the reading view inside the iframe.
 const DEMO_HELPERS = `window.demo = {
   x: 0, y: 0,
-  frame: () => document.querySelector("iframe"),
+  // On the diff page the window's iframe holds two more, one per side: side 0 or 1.
+  side: null,
+  frame() {
+    const outer = document.querySelector("iframe");
+    return this.side === null ? outer : outer.contentDocument.querySelectorAll("iframe")[this.side];
+  },
+  offset() {
+    const o = document.querySelector("iframe").getBoundingClientRect();
+    if (this.side === null) return { left: o.left, top: o.top };
+    const f = this.frame().getBoundingClientRect();
+    return { left: o.left + f.left, top: o.top + f.top };
+  },
   doc() { return this.frame().contentDocument; },
   el(sel, i = 0) { return this.doc().querySelectorAll(sel)[i]; },
   point(sel, i) {
     const r = this.el(sel, i).getBoundingClientRect();
-    const f = this.frame().getBoundingClientRect();
+    const f = this.offset();
     return [f.left + r.left + r.width / 2, f.top + r.top + r.height / 2];
+  },
+  // A caption above the window, for the feature video.
+  caption(text) {
+    let c = document.getElementById("caption");
+    if (!c) {
+      c = document.createElement("div");
+      c.id = "caption";
+      c.style.cssText = "position:fixed;left:0;right:0;top:0;height:6vh;display:flex;align-items:center;" +
+        "justify-content:center;font:700 22px system-ui,-apple-system,'Segoe UI',sans-serif;color:#3A1A0A";
+      document.body.appendChild(c);
+    }
+    c.textContent = text;
   },
   cursor(x, y) {
     this.x = x; this.y = y;
@@ -126,7 +149,7 @@ const DEMO_HELPERS = `window.demo = {
   scroll(y) { this.frame().contentWindow.scrollTo({ top: y, behavior: "instant" }); },
   // Mouse-wheel over the full-screen diagram viewer, at the drawn cursor.
   wheel(dy) {
-    const f = this.frame().getBoundingClientRect();
+    const f = this.offset();
     this.doc().getElementById("diagram-viewer").dispatchEvent(new WheelEvent("wheel", {
       deltaY: dy, clientX: this.x - f.left, clientY: this.y - f.top, bubbles: true, cancelable: true,
     }));
@@ -204,8 +227,8 @@ let send;
 const evaluate = async (expression) =>
   (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })).result.value;
 
-async function setSize(width, height) {
-  await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+async function setSize(width, height, deviceScaleFactor = 1) {
+  await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor, mobile: false });
 }
 
 // Opens a page of our own HTML on the preview origin, so its iframes are same-origin.
@@ -291,30 +314,14 @@ async function shootStills() {
 
 /* ---------------- diff ---------------- */
 
-// An older version of the sample, so the diff still shows each kind of change.
-const DIFF_EDITS = [
-  ["status: draft", "status: idea"],
-  ["- [x] build the Lectern extension", "- [ ] build the extension"],
-  ["Press it again to go back to the source.", "Press the same keys again to return to the plain source."],
-  ["#### And a level 4 nested deep\n", "#### And a level 4 nested deep\n\nThis paragraph was in the old version and has since been removed.\n"],
-  ["A single line break inside a paragraph is joined into one line, as in GitHub.", "A single line break inside a paragraph is kept as a space."],
-  ["Emoji shortcodes work like on GitHub: :rocket: :tada: :white_check_mark: :bulb: :+1:\n\n", ""],
-];
-
+// sample/diff/before.md and after.md: one short note with each kind of change
+// (changed words, a removed paragraph, an added callout, a ticked task, an added item).
 async function shootDiff() {
-  let old = readFileSync("sample/README.md", "utf8");
-  for (const [now, before] of DIFF_EDITS) {
-    if (!old.includes(now)) throw new Error(`sample/README.md no longer contains: ${now}`);
-    old = old.replace(now, before);
-  }
-  mkdirSync("out/screens", { recursive: true });
-  writeFileSync("out/screens/old.md", old);
-
   const width = 1600;
-  const height = 1240;
+  const height = 1200;
   await setSize(width, height);
-  const src = `${base}diff?old=out/screens/old.md&new=sample/README.md&mode=dark&theme=2&size=16`;
-  await showPage(windowPage({ width, height, src, title: "README.md (Working Tree)" }));
+  const src = `${base}diff?old=sample/diff/before.md&new=sample/diff/after.md&mode=dark&theme=2&size=17`;
+  await showPage(windowPage({ width, height, src, title: "offsite.md (Working Tree)" }));
   await evaluate(`(async () => {
     const sides = () => [...document.querySelector("iframe").contentDocument.querySelectorAll("iframe")];
     for (let i = 0; i < 100; i++) {
@@ -330,9 +337,8 @@ async function shootDiff() {
 
 /* ---------------- demo gif ---------------- */
 
-async function recordDemo() {
-  const width = 1200;
-  const height = 750;
+// Frame capture and a scripted cursor, shared by the demo GIF and the feature video.
+function recorder() {
   const dir = mkdtempSync(path.join(tmpdir(), "lectern-gif-"));
   const frames = [];
   const snap = async (ms) => {
@@ -381,6 +387,45 @@ async function recordDemo() {
   const pick = (sel, i = 0, move = 500, after = 900) =>
     moveTo(sel, i, move).then(() => click(sel, i)).then(() => hold(after));
 
+  // Real mouse clicks, for things that listen to pointer events (the mind map).
+  const press = async (sel, i = 0, ms = 300) => {
+    const [x, y] = await evaluate(`demo.point(${J(sel)}, ${i})`);
+    await evaluate(`(() => { const r = document.getElementById("ring"); r.style.left = demo.x + "px"; r.style.top = demo.y + "px";
+      r.classList.remove("on"); void r.offsetWidth; r.classList.add("on"); })()`);
+    for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) {
+      await send("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: type === "mouseMoved" ? 0 : 1 });
+    }
+    await settle(ms);
+  };
+  // Writes the frames as a GIF, or as an MP4 when `video` is set. `width` scales the GIF.
+  const encode = (out, { video = false, width } = {}) => {
+    const list = frames.map((f) => `file '${f.file.replace(/\\/g, "/")}'\nduration ${(Math.max(f.ms, 20) / 1000).toFixed(3)}`);
+    list.push(`file '${frames[frames.length - 1].file.replace(/\\/g, "/")}'`);
+    const listFile = path.join(dir, "frames.txt");
+    writeFileSync(listFile, list.join("\n"));
+    const args = video
+      ? ["-vf", "fps=30,format=yuv420p", "-c:v", "libx264", "-crf", "18", "-preset", "slow", "-movflags", "+faststart"]
+      : [
+          "-vf",
+          `fps=25,${width ? `scale=${width}:-1:flags=lanczos,` : ""}split[a][b];[a]palettegen=max_colors=256:stats_mode=full[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle`,
+          "-loop",
+          "0",
+        ];
+    const res = spawnSync(ffmpeg, ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listFile, ...args, out], {
+      stdio: "inherit",
+    });
+    if (res.status !== 0) throw new Error("ffmpeg failed");
+    console.log(`${out} (${frames.length} frames, ${(statSync(out).size / 1e6).toFixed(1)} MB)`);
+  };
+  const done = () => rmSync(dir, { recursive: true, force: true });
+  return { snap, hold, settle, moveTo, click, press, scrollTo, pick, encode, done, STEP };
+}
+
+async function recordDemo() {
+  const width = 1200;
+  const height = 750;
+  const { snap, hold, settle, moveTo, click, scrollTo, pick, encode, done, STEP } = recorder();
+
   await setSize(width, height);
   await showPage(windowPage({ width, height, src: `${base}?mode=dark&theme=2`, cursor: true }));
   await evaluate(DEMO_HELPERS + `demo.cursor(${width * 0.62}, ${height * 0.55});`);
@@ -428,23 +473,87 @@ async function recordDemo() {
   await scrollTo(null, 700);
   await hold(400);
 
-  const list = frames.map((f) => `file '${f.file.replace(/\\/g, "/")}'\nduration ${(Math.max(f.ms, 20) / 1000).toFixed(3)}`);
-  list.push(`file '${frames[frames.length - 1].file.replace(/\\/g, "/")}'`);
-  const listFile = path.join(dir, "frames.txt");
-  writeFileSync(listFile, list.join("\n"));
-  const out = path.join(OUT, "demo.gif");
-  const res = spawnSync(
-    ffmpeg,
-    [
-      "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listFile,
-      "-vf", "fps=25,split[a][b];[a]palettegen=max_colors=256:stats_mode=full[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle",
-      "-loop", "0", out,
-    ],
-    { stdio: "inherit" }
-  );
-  rmSync(dir, { recursive: true, force: true });
-  if (res.status !== 0) throw new Error("ffmpeg failed");
-  console.log(`${out} (${frames.length} frames, ${(statSync(out).size / 1e6).toFixed(1)} MB)`);
+  encode(path.join(OUT, "demo.gif"));
+  done();
+}
+
+/* ---------------- feature video ---------------- */
+
+// A short video of what's new, for posts: reading-view diffs, the pinned outline and
+// the mind map. `node scripts/screenshots.mjs --features` writes an MP4 and a GIF to
+// out/features/.
+async function recordFeatures() {
+  // Small enough that the text is readable on a phone, drawn at 1.5x so it stays sharp.
+  const width = 1280;
+  const height = 800;
+  const { hold, settle, moveTo, scrollTo, pick, press, encode, done } = recorder();
+  const caption = (text) => evaluate(`demo.caption(${J(text)})`);
+  await setSize(width, height, 1.5);
+
+  // 1. A diff of a Markdown file, read as two pages.
+  const src = `${base}diff?old=sample/diff/before.md&new=sample/diff/after.md&mode=dark&theme=2&size=17`;
+  await showPage(windowPage({ width, height, src, title: "offsite.md (Working Tree)", cursor: true }));
+  await evaluate(`(async () => {
+    const sides = () => [...document.querySelector("iframe").contentDocument.querySelectorAll("iframe")];
+    for (let i = 0; i < 100; i++) {
+      if (sides().length === 2 && sides().every((f) => f.contentDocument?.getElementById("diff-bar"))) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    for (const f of sides()) await f.contentDocument.fonts.ready;
+    await new Promise((r) => setTimeout(r, 400));
+  })()`);
+  await evaluate(DEMO_HELPERS + `demo.side = 1; demo.cursor(${width * 0.72}, ${height * 0.62});`);
+  await caption("New: read your Markdown changes as pages, side by side");
+  await hold(2600);
+  // Step through the changes; the other side keeps up.
+  for (let k = 0; k < 4; k++) {
+    await pick("#db-next", 0, k ? 250 : 650, 1000);
+  }
+  // A ticked task gets a ring.
+  await moveTo(".diff-task", 0, 600);
+  await hold(1400);
+  // Scroll the old side: the new side follows.
+  await evaluate("demo.side = 0");
+  await moveTo("#root h1", 0, 700);
+  await scrollTo(null, 900);
+  await hold(1200);
+
+  // 2. The outline, pinned beside the text.
+  await showPage(windowPage({ width, height, src: `${base}?mode=dark&theme=2&size=17`, cursor: true }));
+  await evaluate(DEMO_HELPERS + `demo.cursor(${width * 0.6}, ${height * 0.55});`);
+  await caption("Pin the outline beside the text");
+  await hold(900);
+  await pick("#toc-toggle", 0, 600, 500);
+  await pick("#toc-pin", 0, 500, 1100);
+  await moveTo("#root h1", 0, 700);
+  await scrollTo("#text-and-emphasis", 1300);
+  await hold(700);
+  await scrollTo("#callouts-obsidian-style", 1300);
+  await hold(700);
+  await scrollTo("#math", 1300);
+  await hold(1000);
+
+  // 3. The headings as a mind map.
+  await caption("See your headings as a mind map");
+  await pick("#toc-mindmap", 0, 700, 1100);
+  // Fold a branch, then open it again.
+  await moveTo("#diagram-viewer .mm-fold", 1, 700);
+  await press("#diagram-viewer .mm-fold", 1, 900);
+  await moveTo("#diagram-viewer .mm-fold", 1, 300);
+  await press("#diagram-viewer .mm-fold", 1, 900);
+  // Click a heading to go there.
+  await moveTo("#diagram-viewer .mm-node", 4, 700);
+  await hold(400);
+  await press("#diagram-viewer .mm-node", 4, 1300);
+  await hold(800);
+
+  await caption("Lectern: Markdown Reader · free on the VS Code Marketplace and Open VSX");
+  await hold(2800);
+
+  mkdirSync("out/features", { recursive: true });
+  encode("out/features/lectern-new-features.mp4", { video: true });
+  encode("out/features/lectern-new-features.gif", { width: 960 });
+  done();
 }
 
 /* ---------------- main ---------------- */
@@ -460,11 +569,14 @@ try {
 
   const only = (flag) => process.argv.includes(flag);
   const pick = process.argv.some((a) => a.startsWith("--still="));
-  if (!only("--gif-only")) {
+  if (only("--features")) {
+    if (!ffmpeg) throw new Error("the feature video needs ffmpeg (set FFMPEG)");
+    await recordFeatures();
+  } else if (!only("--gif-only")) {
     if (!only("--diff-only")) await shootStills();
     if (!pick) await shootDiff();
   }
-  if (only("--stills-only") || only("--diff-only") || pick) {
+  if (only("--stills-only") || only("--diff-only") || only("--features") || pick) {
     // skip the GIF
   } else if (ffmpeg) await recordDemo();
   else console.log("ffmpeg not found: skipped demo.gif (set FFMPEG to enable)");
