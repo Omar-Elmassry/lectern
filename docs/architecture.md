@@ -112,7 +112,8 @@ When the user opens a diff of a Markdown file with Lectern (the book button or
 separate Lectern editors side by side, one per version. The extension API does not say
 they belong together (the tab's input is unknown to extensions), so
 `ReaderEditorProvider.pairDiffSides()` pairs them itself: two readers for the same file
-on disk, at least one of them a `git:` version, opened in the same editor group within
+on disk, at least one of them a past version (`git:` from VS Code's git, or `gitlens:`
+from GitLens, whose URI authority is hex-encoded JSON `{ref, repoPath}`), opened in the same editor group within
 3 seconds. The older version (`HEAD` < index < working tree) is the original side;
 for two commits, `commitTime()` asks the git extension for both commit dates. Each
 side's `update` then carries the other side's text.

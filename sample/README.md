@@ -115,16 +115,7 @@ A fenced `math` block works too:
 
 ## Diagrams
 
-Click a diagram (or its corner button) to open it full screen. :mag:
-
-```mermaid
-flowchart LR
-  A[Markdown file] -->|Ctrl+Alt+R| B(Reading view)
-  B --> C{Need to edit?}
-  C -->|Yes| D[Source editor]
-  C -->|No| E[Keep reading]
-  D -->|Ctrl+Alt+R| B
-```
+Click HELLO a diagram (or its corner button) to open it full screen. :mag:
 
 ```mermaid
 sequenceDiagram

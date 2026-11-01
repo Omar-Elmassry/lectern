@@ -176,11 +176,11 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
     return true;
   }
 
-  diffSidesForTests(): Array<{ uri: string; side?: string; active: boolean }> {
+  diffSidesForTests(): Array<{ uri: string; side?: string; active: boolean; text: string }> {
     const active = this.activeDiffSides();
     return [...this.entries]
       .filter((e) => e.partner)
-      .map((e) => ({ uri: e.document.uri.toString(), side: e.side, active: active.includes(e) }));
+      .map((e) => ({ uri: e.document.uri.toString(), side: e.side, active: active.includes(e), text: e.document.getText() }));
   }
 
   /** True when the active editor is a diff shown in the reading view. */

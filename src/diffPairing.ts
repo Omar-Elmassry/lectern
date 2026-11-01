@@ -2,37 +2,50 @@ import * as vscode from "vscode";
 
 /**
  * VS Code opens a diff in a custom editor as two separate editors, one per
- * side, and tells the extension nothing about the pair. The git extension's
- * side has a `git:` URI that names the file on disk, so two Lectern editors
- * for the same file that open together in the same editor group are the two
- * sides of one diff.
+ * side, and tells the extension nothing about the pair. A past version of a
+ * file has a URI that names the file on disk (`git:` from VS Code's git,
+ * `gitlens:` from GitLens), so two Lectern editors for the same file that open
+ * together in the same editor group are the two sides of one diff.
  */
 
 /** Both sides of a diff open within this many milliseconds of each other. */
 export const PAIR_WINDOW_MS = 3000;
 
 interface GitParams {
+  /** The file on disk. */
   path: string;
+  /** Commit, "HEAD", or "", "~" for the index (VS Code's git). */
   ref: string;
 }
 
+/** GitLens's id for the working tree, "not committed yet". */
+const UNCOMMITTED = "0".repeat(40);
+
 function gitParams(uri: vscode.Uri): GitParams | undefined {
-  if (uri.scheme !== "git") {
-    return undefined;
-  }
   try {
-    const q = JSON.parse(uri.query) as Partial<GitParams>;
-    return typeof q.path === "string" ? { path: q.path, ref: typeof q.ref === "string" ? q.ref : "" } : undefined;
+    if (uri.scheme === "git") {
+      // git:/c:/repo/note.md?{"path":"c:\\repo\\note.md","ref":"HEAD"}
+      const q = JSON.parse(uri.query) as Partial<GitParams>;
+      return typeof q.path === "string" ? { path: q.path, ref: typeof q.ref === "string" ? q.ref : "" } : undefined;
+    }
+    if (uri.scheme === "gitlens") {
+      // gitlens://<hex of {"ref":…,"repoPath":…}>/c:/repo/note.md
+      const meta = JSON.parse(Buffer.from(uri.authority, "hex").toString("utf8")) as { ref?: unknown };
+      const ref = typeof meta.ref === "string" ? meta.ref : "";
+      return { path: vscode.Uri.from({ scheme: "file", path: uri.path }).fsPath, ref };
+    }
   } catch {
-    return undefined;
+    /* not a version we understand */
   }
+  return undefined;
 }
 
+/** A past version of a file from VS Code's git or GitLens. */
 export function isGitUri(uri: vscode.Uri): boolean {
   return gitParams(uri) !== undefined;
 }
 
-/** The file on disk a document belongs to: itself, or the file a `git:` version is of. */
+/** The file on disk a document belongs to: itself, or the file a past version is of. */
 export function diskUri(uri: vscode.Uri): vscode.Uri {
   const git = gitParams(uri);
   return git ? vscode.Uri.file(git.path) : uri;
@@ -53,7 +66,7 @@ export function diskKey(uri: vscode.Uri): string | undefined {
  */
 export function age(uri: vscode.Uri): number {
   const git = gitParams(uri);
-  if (!git) {
+  if (!git || git.ref === UNCOMMITTED) {
     return 3; // the file itself
   }
   if (git.ref === "HEAD") {
@@ -72,13 +85,14 @@ export function age(uri: vscode.Uri): number {
 export function sideLabel(uri: vscode.Uri, side: "original" | "modified"): string {
   const git = gitParams(uri);
   let where = "Working tree";
-  if (git) {
+  if (git && git.ref !== UNCOMMITTED) {
     if (git.ref === "HEAD") {
       where = "HEAD";
     } else if (git.ref === "" || git.ref.startsWith("~")) {
       where = "Index";
     } else {
-      where = /^[0-9a-f]{40}$/i.test(git.ref) ? git.ref.slice(0, 7) : git.ref;
+      // A commit hash, perhaps with ^ or ~n after it: keep it short.
+      where = git.ref.replace(/^([0-9a-f]{7})[0-9a-f]{33}/i, "$1");
     }
   } else if (uri.scheme !== "file") {
     where = uri.scheme;
@@ -91,11 +105,11 @@ interface GitApi {
   getRepository(uri: vscode.Uri): { getCommit(ref: string): Promise<{ commitDate?: Date; authorDate?: Date }> } | null;
 }
 
-/** When the commit a `git:` version comes from was made, or undefined if unknown. */
+/** When the commit a past version comes from was made, or undefined if unknown. */
 export async function commitTime(uri: vscode.Uri): Promise<number | undefined> {
   const git = gitParams(uri);
-  if (!git || !git.ref || git.ref.startsWith("~")) {
-    return undefined; // the index, not a commit
+  if (!git || !git.ref || git.ref.startsWith("~") || git.ref === UNCOMMITTED) {
+    return undefined; // the index or the working tree, not a commit
   }
   try {
     const ext = vscode.extensions.getExtension<{ getAPI(v: 1): GitApi }>("vscode.git");
