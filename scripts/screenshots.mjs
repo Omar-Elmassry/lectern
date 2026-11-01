@@ -294,6 +294,7 @@ async function shootStills() {
 // An older version of the sample, so the diff still shows each kind of change.
 const DIFF_EDITS = [
   ["status: draft", "status: idea"],
+  ["- [x] build the Lectern extension", "- [ ] build the extension"],
   ["Press it again to go back to the source.", "Press the same keys again to return to the plain source."],
   ["#### And a level 4 nested deep\n", "#### And a level 4 nested deep\n\nThis paragraph was in the old version and has since been removed.\n"],
   ["A single line break inside a paragraph is joined into one line, as in GitHub.", "A single line break inside a paragraph is kept as a space."],

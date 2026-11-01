@@ -135,8 +135,11 @@ exists on both sides. Inserting tokens (not text) keeps task line numbers correc
 
 In the webview, `highlightWords()` renders the other side's version of each changed
 block, compares the plain text with `diffWords()` and wraps the differences in
-`<ins>` / `<del>`, skipping formulas and diagrams and blocks where more than 60%
-changed. Scroll sync posts the nearest `data-sync` id above the line under the diff
+`<ins>` / `<del>`, skipping formulas and diagrams and blocks where more than 85%
+changed. It also adds `.diff-task` to task boxes whose ticked state differs from the
+other side. In a diff, a changed block is tinted by side (red on the original, green on
+the modified side), and done tasks are not struck through, since a line through text
+means "removed" there. Scroll sync posts the nearest `data-sync` id above the line under the diff
 bar plus a fraction of the way to the next one; the other side scrolls to the same
 point.
 

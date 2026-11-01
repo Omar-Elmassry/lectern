@@ -15,7 +15,7 @@ type Post = (msg: unknown) => void;
 /** Text inside these is not word-diffed: formulas and diagrams are drawn, not read. */
 const NO_WORD_DIFF = ".katex, .mermaid-block, .fm-chip";
 /** Above this share of changed text, highlighting words is just noise. */
-const MAX_WORD_RATIO = 0.6;
+const MAX_WORD_RATIO = 0.85;
 
 /**
  * Highlight the words that differ inside each changed block: removed words on
@@ -33,6 +33,7 @@ export function highlightWords(root: HTMLElement, summary: DiffSummary, info: Di
     } catch {
       return;
     }
+    markTaskChanges(block, scratch);
     const mine = textNodes(block);
     const theirs = textNodes(scratch);
     const original = info.side === "original";
@@ -41,6 +42,21 @@ export function highlightWords(root: HTMLElement, summary: DiffSummary, info: Di
       return;
     }
     wrapRanges(mine.nodes, original ? d.removed : d.added, original ? "del" : "ins");
+  });
+}
+
+/** Ring the task boxes that were ticked or unticked, which word marks can't show. */
+function markTaskChanges(block: HTMLElement, other: HTMLElement): void {
+  const mine = block.querySelectorAll<HTMLInputElement>("input.task-cb");
+  const theirs = other.querySelectorAll<HTMLInputElement>("input.task-cb");
+  if (mine.length !== theirs.length) {
+    return;
+  }
+  mine.forEach((cb, i) => {
+    if (cb.checked !== theirs[i].checked) {
+      cb.classList.add("diff-task");
+      cb.title = cb.checked ? "Ticked in this version" : "Not ticked in this version";
+    }
   });
 }
 

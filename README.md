@@ -179,13 +179,16 @@ by side:
 
 - **Added** blocks are green and **removed** blocks are red, with a dashed line on the
   other side where they were.
-- In **changed** blocks, the words that changed are highlighted.
+- **Changed** blocks are light red on the left (the old text) and light green on the
+  right (the new text). The words that changed are highlighted more strongly.
+- A task box that was ticked or unticked has a **ring** around it. Done tasks are not
+  struck through in a diff, so a line through text always means it was removed.
 - Both sides **scroll together**. The bar at the top counts the changes, jumps to the
   previous or next one (**`Alt+↑`** / **`Alt+↓`**), and **Text diff** goes back to the
   normal diff. `Ctrl+Alt+R` does that too.
 
 <p align="center">
-  <img src="images/screenshots/diff.png" alt="A Markdown diff in Lectern: the old version on the left with a removed paragraph in red and removed words struck through, the new version on the right with added words and an added paragraph in green">
+  <img src="images/screenshots/diff.png" alt="A Markdown diff in Lectern: the old version on the left in red with a removed paragraph and the changed words marked, the new version on the right with added words and an added paragraph in green">
 </p>
 
 To open every Markdown diff this way, run **Lectern: Toggle Opening Markdown Changes in
