@@ -35,11 +35,12 @@ keeps them strictly separated:
 
 | Path | Role |
 | --- | --- |
-| `src/extension.ts` | `activate()`: creates the `WikiResolver`, registers the custom editor provider + 4 commands (`lectern.open`, `lectern.openSource`, `lectern.toggleDiffDefault`, `lectern.openSettings`). In a diff, `open` and `openSource` reopen the whole diff with the other editor. |
+| `src/extension.ts` | `activate()`: creates the `WikiResolver`, registers the custom editor provider + 5 commands (`lectern.open`, `lectern.openSource`, `lectern.showMindMap`, `lectern.toggleDiffDefault`, `lectern.openSettings`). In a diff, `open` and `openSource` reopen the whole diff with the other editor. |
 | `src/readerProvider.ts` | Provider: HTML/CSP, settings collection, message handling, task edits, link opening, open-panel registry, pairing the two sides of a diff. |
 | `src/diffPairing.ts` | Reads `git:` URIs (which file, which version), labels diff sides, `reopenActiveWith()`. |
 | `src/settings.ts` | `lectern.*` keys, defaults, bounds, `sanitizePref()`. Single source of truth for host and webview. |
 | `src/markdown/diff.ts` | `diffBlocks()` (LCS over top-level blocks, similar blocks paired as changes) and `diffWords()`. Pure. |
+| `src/markdown/mindmap.ts` | Mind map: `buildTree()` (headings to a tree; one top heading is the root, else the file name) and `layout()` (left-to-right tree, folding). Pure. |
 | `src/markdown/render.ts` | `renderMarkdown(content, settings, diff?) -> {html, taskLines, words, diff?}`; marked v13 + marked-highlight + highlight.js; callouts, wiki-link extension, task line mapping, heading ids, asset URLs. |
 | `src/markdown/math.ts` | `$…$` / `$$…$$` marked extensions and `renderTex()` (KaTeX, `trust: false`). ```` ```math ```` and ```` ```mermaid ```` fences go through the `code` renderer in `render.ts`. |
 | `src/markdown/emoji.ts` | `:shortcode:` inline extension backed by `gemoji`'s `nameToEmoji`. `start()` only stops at known codes so bare URLs still autolink. |
@@ -49,9 +50,10 @@ keeps them strictly separated:
 | `src/nonce.ts` | CSP nonce (crypto). |
 | `src/webview/main.ts` | Shell, panels, settings UI, TOC, image lightbox, Mermaid loading/theming and the full-screen diagram viewer, render loop, message plumbing, host-stylesheet stripping. |
 | `src/webview/diffview.ts` | Diff UI: word highlights inside changed blocks, the diff bar (counts, previous/next, Text diff) and scroll sync. |
+| `src/webview/mindmapview.ts` | Draws the mind map as an SVG (branch colours, fold buttons) for the full-screen viewer in `main.ts`. |
 | `src/webview/mermaid.ts` | Entry for `dist/webview/mermaid.js` (~5 MB). Sets `window.lecternMermaid`; loaded on demand by `main.ts`. |
 | `src/webview/style.css` | All theming (token blocks per mode/theme) and layout. |
-| `test/*.test.mjs` | `node:test` suites run by `npm test`: renderer (tasks, callouts, headings, assets, wiki, front matter, math, emoji, words, diffs), wiki resolver, settings schema. |
+| `test/*.test.mjs` | `node:test` suites run by `npm test`: renderer (tasks, callouts, headings, assets, wiki, front matter, math, emoji, words, diffs), mind map tree and layout, wiki resolver, settings schema. |
 | `scripts/*.mjs` | `make-package` (generates `package.json`), `test` (bundles + runs `test/`), `webtest`, `hosttest`, `preview` (serves the real webview in a browser), `screenshots` (README images), `notices` (writes `THIRD_PARTY_NOTICES.md` during production builds). |
 | `esbuild.mjs` | Three builds: host (Node CJS, `vscode` external), webview `main` and webview `mermaid` (browser IIFEs). KaTeX fonts ship as woff2 only. Production builds also regenerate `THIRD_PARTY_NOTICES.md`. |
 | `dist/` | Build output that ships in the VSIX: `extension.js`, `webview/main.js`, `webview/main.css`, `webview/mermaid.js` and `webview/fonts/*.woff2` (KaTeX). |
@@ -76,6 +78,7 @@ Host → webview:
 | --- | --- | --- |
 | `update` | `{ content: string, settings: ReaderSettings, diff?: { side, other, label } }` | Re-renders and re-applies settings. Sent on `ready`, document change (debounced 150 ms; in a diff, a change to either side), `lectern` config change and color theme change. |
 | `diffScroll` | `{ id: string, frac: number }` | Diff only: the other side scrolled; follow it. |
+| `mindmap` | — | Opens the mind map (from **Lectern: Show Mind Map**). |
 | `scrollTo` | `{ anchor: string }` | Scrolls to a heading by id, percent-decoded id or `slugify()`d text. |
 
 `makeUpdater()` tags each update with a ticket so a slow wiki resolution cannot paint
@@ -93,12 +96,14 @@ Declared in `package.json` (template: `scripts/make-package.mjs`) and mirrored i
 | `fontFamily` | `""` | string (empty = default sans stack; the panel offers Sans/Serif/Mono presets) |
 | `fontSize` | `18` | 12–28 |
 | `lineHeight` | `1.7` | 1.2–2.4 |
+| `outlinePinned` | `false` | boolean |
 
 `ReaderSettings` (what the webview receives) is those prefs plus `themeKind`
 (`vscode.ColorThemeKind`: 1 light, 2 dark, 3 high contrast, 4 high contrast light),
 `docBase` / `rootBase` (webview URI bases for document- and workspace-relative
-resources), the `wiki` / `embeds` maps of resolved targets, and `readOnly` (task
-checkboxes disabled: the old side of a diff).
+resources), the `wiki` / `embeds` maps of resolved targets, `readOnly` (task
+checkboxes disabled: the old side of a diff) and `title` (the file name, for the mind
+map's root).
 
 ## Reading-view diffs
 

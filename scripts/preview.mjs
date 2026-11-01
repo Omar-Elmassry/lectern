@@ -53,7 +53,7 @@ function send() {
     backgroundMode: q.get("mode") ?? "editor", readingWidth: Number(q.get("width") ?? 760),
     fontFamily: "", fontSize: Number(q.get("size") ?? 18), lineHeight: Number(q.get("lh") ?? 1.7),
     themeKind: kind, docBase: ${JSON.stringify(docBaseOf(defaultFile))}, wiki: {}, embeds: {},
-    readOnly: diff?.side === "original",
+    readOnly: diff?.side === "original", outlinePinned: q.has("pin"), title: "README",
   }, diff }, "*");
 }
 </script>

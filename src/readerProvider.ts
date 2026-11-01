@@ -166,6 +166,16 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
     });
   }
 
+  /** Open the mind map in the focused reader; false when no reader is focused. */
+  showMindMap(): boolean {
+    const entry = [...this.entries].find((e) => e.panel.active);
+    if (!entry) {
+      return false;
+    }
+    void entry.panel.webview.postMessage({ type: "mindmap" });
+    return true;
+  }
+
   /** True when the focused reader is one side of a diff. */
   isDiffActive(): boolean {
     return [...this.entries].some((e) => e.partner && e.panel.active);
@@ -317,6 +327,7 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
       themeKind: vscode.window.activeColorTheme.kind,
       docBase,
       rootBase,
+      title: onDisk.path.split("/").pop()?.replace(/\.[^.]+$/, "") ?? "",
       wiki: wiki.links,
       embeds: wiki.embeds,
     };

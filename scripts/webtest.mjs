@@ -157,3 +157,26 @@ const diffOk =
   words.join("|") === "red" && counts === "+1 added ~1 changed" && addedBlock && askedText && barGone;
 console.log("DIFF VIEW OK:", diffOk);
 if (!diffOk) process.exitCode = 1;
+
+// --- pinned outline and mind map ---
+const mapSettings = { ...diffSettings, outlinePinned: false, title: "notes" };
+const sendDoc = (content, settings) =>
+  window.dispatchEvent(new window.MessageEvent("message", { data: { type: "update", content, settings } }));
+sendDoc("# Title\n\n## One\n\n### One A\n\n## Two\n", mapSettings);
+document.getElementById("toc-pin").click();
+const pinPosted = JSON.stringify(posted[posted.length - 1]) === JSON.stringify({ type: "setSetting", key: "outlinePinned", value: true });
+const pinned = document.body.classList.contains("toc-pinned") && document.getElementById("toc-panel").classList.contains("open");
+document.querySelector("a.toc-row").click(); // jumping keeps a pinned outline open
+const stillOpen = document.getElementById("toc-panel").classList.contains("open");
+document.getElementById("toc-mindmap").click();
+const mapNodes = [...document.querySelectorAll("#diagram-viewer .mm-node")].map((n) => n.getAttribute("aria-label"));
+console.log("pin:", { pinPosted, pinned, stillOpen }, "mind map:", mapNodes);
+window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+sendDoc("Just text.\n", mapSettings);
+const mapDisabled = document.getElementById("toc-mindmap").disabled;
+const mapOk =
+  pinPosted && pinned && stillOpen && mapNodes.join("|") === "Title|One|One A|Two" && mapDisabled &&
+  !document.getElementById("diagram-viewer");
+console.log("PIN AND MIND MAP OK:", mapOk);
+if (!mapOk) process.exitCode = 1;

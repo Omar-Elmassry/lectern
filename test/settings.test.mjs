@@ -26,4 +26,6 @@ test("sanitizePref validates and clamps", () => {
   assert.equal(s.sanitizePref("backgroundMode", "sepia"), "sepia");
   assert.equal(s.sanitizePref("backgroundMode", "neon"), undefined);
   assert.equal(s.sanitizePref("fontFamily", "  Georgia  "), "Georgia");
+  assert.equal(s.sanitizePref("outlinePinned", true), true);
+  assert.equal(s.sanitizePref("outlinePinned", "yes"), undefined);
 });

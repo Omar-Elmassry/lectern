@@ -76,6 +76,27 @@ A thin **progress bar** and a **word count with reading time** sit quietly at th
   <img src="images/screenshots/hero.png" alt="The outline panel open next to a document in the Dark palette">
 </p>
 
+**Pin the outline** (the pin button at its top) to keep it open beside the text while you
+read. It stays pinned for every note until you unpin it. In a narrow window it slides
+over the text instead.
+
+<p align="center">
+  <img src="images/screenshots/outline-pinned.png" alt="The outline pinned beside the text in the Light palette, with the current section highlighted">
+</p>
+
+### See the whole note as a mind map
+
+The **mind map** button at the top of the outline (or **Lectern: Show Mind Map**) draws
+the note's headings as a tree that grows out from the title, one colour per section.
+Click a heading to jump to it. Click the small circle at the end of a branch to fold it
+or open it again. Zoom and move around as in the diagram viewer, and press `Esc` to
+close. With the keyboard: `Tab` moves between headings, `Enter` jumps, `←` / `→` fold
+and unfold.
+
+<p align="center">
+  <img src="images/screenshots/mindmap.png" alt="The mind map of the sample note: the title on the left, its sections branching to the right in different colours">
+</p>
+
 ### Callouts, tasks and wiki links
 
 - **Callouts** in Obsidian style (`> [!note]`, `> [!warning]`, …), including **foldable**
@@ -195,6 +216,7 @@ settings, so you can also set them per workspace:
 | `lectern.fontSize` | `18` | Text size in px (12–28). |
 | `lectern.readingWidth` | `760` | Maximum width of the text column in px (480–1600). |
 | `lectern.lineHeight` | `1.7` | Line spacing (1.2–2.4). |
+| `lectern.outlinePinned` | `false` | Keep the outline open beside the text. |
 
 ## Commands
 
@@ -203,6 +225,7 @@ settings, so you can also set them per workspace:
 | Lectern: Open in Reading View | `Ctrl+Alt+R` / `Cmd+Alt+R` in a Markdown editor or diff |
 | Lectern: Open Markdown Source | `Ctrl+Alt+R` / `Cmd+Alt+R` in the reading view (in a diff: back to the text diff) |
 | Lectern: Toggle Opening Markdown Changes in Reading View | — |
+| Lectern: Show Mind Map | — |
 | Lectern: Open Settings | — |
 
 ## Contributing

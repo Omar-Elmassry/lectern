@@ -2,6 +2,7 @@ import type { ReaderSettings, RenderResult } from "../markdown/render";
 import { renderMarkdown } from "../markdown/render";
 import { slugify } from "../markdown/util";
 import { followScroll, highlightWords, initDiffSync, revealFirstChange, updateDiffBar, type DiffInfo } from "./diffview";
+import { drawMindMap, mindTree } from "./mindmapview";
 import { PREF_BOUNDS, PREF_DEFAULTS, sanitizePref, type PrefKey } from "../settings";
 import "katex/dist/katex.min.css";
 import "./style.css";
@@ -98,6 +99,9 @@ const ICONS = {
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M5.5 8h8M5.5 12h8M2.5 8h.01M2.5 12h.01"/></svg>',
   settings:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h6M12 4.5h1M3 11.5h1M7 11.5h6"/><circle cx="10.5" cy="4.5" r="1.5"/><circle cx="5.5" cy="11.5" r="1.5"/></svg>',
+  pin: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2.5h4M7 2.5v4L4.5 9h7L9 6.5v-4M8 9v4.5"/></svg>',
+  mindmap:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="6.5" width="4" height="3" rx="1"/><rect x="10.5" y="2" width="4" height="3" rx="1"/><rect x="10.5" y="11" width="4" height="3" rx="1"/><path d="M5.5 8c2.5 0 2.5-4.5 5-4.5M5.5 8c2.5 0 2.5 4.5 5 4.5"/></svg>',
 };
 
 function ensureShell(): void {
@@ -113,7 +117,11 @@ function ensureShell(): void {
   toc.id = "toc-panel";
   toc.className = "rd-panel";
   toc.setAttribute("aria-label", "Outline");
-  toc.innerHTML = `<div id="toc-title">Outline</div><nav id="toc-list" aria-label="Headings"></nav>`;
+  toc.innerHTML =
+    `<div id="toc-head"><div id="toc-title">Outline</div>` +
+    `<button type="button" class="toc-tool" id="toc-mindmap" title="Mind map" aria-label="Mind map">${ICONS.mindmap}</button>` +
+    `<button type="button" class="toc-tool" id="toc-pin" title="Pin the outline" aria-label="Pin the outline" aria-pressed="false">${ICONS.pin}</button></div>` +
+    `<nav id="toc-list" aria-label="Headings"></nav>`;
   document.body.appendChild(toc);
 
   const option = (attr: string, value: string | number, label: string) =>
@@ -212,9 +220,19 @@ let openPanel: PanelName | null = null;
  */
 function setPanel(name: PanelName | null, opts: { restoreFocus?: boolean } = {}): void {
   const previous = openPanel;
-  openPanel = name;
+  const pinned = outlinePinned();
+  // A pinned outline is always open; it is never the panel that is "open" on top.
+  openPanel = name === "toc" && pinned ? null : name;
+  document.body.classList.toggle("toc-pinned", pinned);
+  const pin = document.getElementById("toc-pin");
+  if (pin) {
+    const on = !!currentSettings?.outlinePinned;
+    pin.setAttribute("aria-pressed", String(on));
+    pin.title = on ? "Unpin the outline" : "Pin the outline";
+    pin.setAttribute("aria-label", pin.title);
+  }
   for (const key of Object.keys(PANELS) as PanelName[]) {
-    const open = key === name;
+    const open = key === name || (key === "toc" && pinned);
     const panel = document.getElementById(PANELS[key].panel);
     if (panel) {
       panel.classList.toggle("open", open);
@@ -222,7 +240,7 @@ function setPanel(name: PanelName | null, opts: { restoreFocus?: boolean } = {})
     }
     document.getElementById(PANELS[key].toggle)?.setAttribute("aria-expanded", String(open));
   }
-  if (name && name !== previous) {
+  if (name && name !== previous && !(name === "toc" && pinned)) {
     const panel = document.getElementById(PANELS[name].panel);
     const first =
       panel?.querySelector<HTMLElement>(".toc-row.active, [aria-pressed='true']") ??
@@ -232,6 +250,15 @@ function setPanel(name: PanelName | null, opts: { restoreFocus?: boolean } = {})
     document.getElementById(PANELS[previous].toggle)?.focus();
   }
 }
+
+/** Below this width a pinned outline would squeeze the text: it slides over it instead. */
+const PIN_MIN_WIDTH = 720;
+
+function outlinePinned(): boolean {
+  return !!currentSettings?.outlinePinned && window.innerWidth >= PIN_MIN_WIDTH;
+}
+
+window.addEventListener("resize", () => setPanel(openPanel));
 
 function applySettings(s: ReaderSettings): void {
   currentSettings = s;
@@ -251,6 +278,7 @@ function applySettings(s: ReaderSettings): void {
   const dark = mode === "dark" || mode === "black" || (mode === "editor" && editorDark);
   document.body.dataset.theme = dark ? "dark" : "light";
   updateSettingsPanel();
+  setPanel(openPanel);
   if (root.querySelector(".mermaid-block") && diagramThemeKey() !== drawnThemeKey) {
     void drawDiagrams();
   }
@@ -445,6 +473,10 @@ function buildToc(): void {
     row.dataset.target = h.id;
     list.appendChild(row);
   }
+  const map = document.getElementById("toc-mindmap") as HTMLButtonElement | null;
+  if (map) {
+    map.disabled = headings.length === 0;
+  }
 }
 
 /* ---------- mermaid diagrams ---------- */
@@ -626,6 +658,9 @@ interface Viewer {
   x: number;
   y: number;
   returnFocus: HTMLElement | null;
+  /** A click (not a drag) on the content, with the element it started on. */
+  onTap?: (target: Element) => void;
+  maxFit: number;
 }
 
 let viewer: Viewer | null = null;
@@ -637,26 +672,43 @@ function openDiagramViewer(block: HTMLElement): void {
   if (!svg) {
     return;
   }
-  closeDiagramViewer();
   const vb = svg.viewBox.baseVal;
   const rect = svg.getBoundingClientRect();
   const w = vb && vb.width ? vb.width : rect.width;
   const h = vb && vb.height ? vb.height : rect.height;
-
-  const box = document.createElement("div");
-  box.id = "diagram-viewer";
-  box.setAttribute("role", "dialog");
-  box.setAttribute("aria-modal", "true");
-  box.setAttribute("aria-label", "Diagram, full screen");
-  box.tabIndex = -1;
-
-  const stage = document.createElement("div");
-  stage.className = "dv-stage";
   const copy = svg.cloneNode(true) as SVGSVGElement;
   copy.removeAttribute("style"); // Mermaid's max-width
   copy.setAttribute("width", String(w));
   copy.setAttribute("height", String(h));
-  stage.appendChild(copy);
+  openViewer(copy, w, h, {
+    label: "Diagram, full screen",
+    hint: "Scroll to zoom \u00B7 drag to move \u00B7 Esc to close",
+    returnFocus: block.querySelector(".diagram-expand"),
+  });
+}
+
+interface ViewerOptions {
+  label: string;
+  hint: string;
+  returnFocus: HTMLElement | null;
+  onTap?: (target: Element) => void;
+  /** Largest zoom when fitting to the window. */
+  maxFit?: number;
+}
+
+/** Full-screen, zoomable view of an SVG: diagrams and the mind map. */
+function openViewer(content: SVGSVGElement, w: number, h: number, opts: ViewerOptions): void {
+  closeDiagramViewer();
+  const box = document.createElement("div");
+  box.id = "diagram-viewer";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+  box.setAttribute("aria-label", opts.label);
+  box.tabIndex = -1;
+
+  const stage = document.createElement("div");
+  stage.className = "dv-stage";
+  stage.appendChild(content);
   box.appendChild(stage);
 
   const bar = document.createElement("div");
@@ -673,15 +725,37 @@ function openDiagramViewer(block: HTMLElement): void {
 
   const hint = document.createElement("div");
   hint.className = "dv-hint";
-  hint.textContent = "Scroll to zoom · drag to move · Esc to close";
+  hint.textContent = opts.hint;
   box.appendChild(hint);
 
   document.body.appendChild(box);
   document.body.classList.add("dv-open");
-  viewer = { box, stage, w, h, scale: 1, x: 0, y: 0, returnFocus: block.querySelector(".diagram-expand") };
+  viewer = {
+    box,
+    stage,
+    w,
+    h,
+    scale: 1,
+    x: 0,
+    y: 0,
+    returnFocus: opts.returnFocus,
+    onTap: opts.onTap,
+    maxFit: opts.maxFit ?? 4,
+  };
   fitDiagram();
   wireViewer(box);
   box.focus();
+}
+
+/** Swap the viewer's content (a re-drawn mind map), keeping zoom and position. */
+function setViewerContent(content: SVGSVGElement, w: number, h: number): void {
+  if (!viewer) {
+    return;
+  }
+  viewer.stage.replaceChildren(content);
+  viewer.w = w;
+  viewer.h = h;
+  applyViewerTransform();
 }
 
 function closeDiagramViewer(): boolean {
@@ -715,7 +789,7 @@ function fitDiagram(): void {
   const vw = viewer.box.clientWidth;
   const vh = viewer.box.clientHeight;
   const margin = 48;
-  const scale = Math.min((vw - margin * 2) / viewer.w, (vh - margin * 2 - 40) / viewer.h, 4);
+  const scale = Math.min((vw - margin * 2) / viewer.w, (vh - margin * 2 - 40) / viewer.h, viewer.maxFit);
   viewer.scale = Math.max(MIN_SCALE, scale);
   viewer.x = (vw - viewer.w * viewer.scale) / 2;
   viewer.y = (vh - viewer.h * viewer.scale) / 2;
@@ -758,10 +832,13 @@ function wireViewer(box: HTMLElement): void {
   );
 
   let drag: { id: number; x: number; y: number } | null = null;
+  // A press that moves less than a few pixels is a click on what it started on.
+  let tap: { x: number; y: number; target: Element } | null = null;
   box.addEventListener("pointerdown", (e) => {
     if ((e.target as HTMLElement).closest(".dv-toolbar") || e.button !== 0) {
       return;
     }
+    tap = { x: e.clientX, y: e.clientY, target: e.target as Element };
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
     box.setPointerCapture(e.pointerId);
     box.classList.add("dragging");
@@ -773,11 +850,19 @@ function wireViewer(box: HTMLElement): void {
     panDiagram(e.clientX - drag.x, e.clientY - drag.y);
     drag.x = e.clientX;
     drag.y = e.clientY;
+    if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 4) {
+      tap = null;
+    }
   });
   const endDrag = (e: PointerEvent) => {
     if (drag && e.pointerId === drag.id) {
       drag = null;
       box.classList.remove("dragging");
+      const t = tap;
+      tap = null;
+      if (t && e.type === "pointerup") {
+        viewer?.onTap?.(t.target);
+      }
     }
   };
   box.addEventListener("pointerup", endDrag);
@@ -821,7 +906,7 @@ function wireViewer(box: HTMLElement): void {
       run();
     } else if (e.key === "Tab") {
       // Keep focus inside the dialog.
-      const items = [...box.querySelectorAll<HTMLElement>("button")];
+      const items = [...box.querySelectorAll<HTMLElement>(".dv-stage [tabindex='0'], button")];
       const i = items.indexOf(document.activeElement as HTMLElement);
       const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i + 1) % items.length;
       e.preventDefault();
@@ -1022,6 +1107,17 @@ document.addEventListener("click", (e) => {
     setPanel(openPanel === "toc" ? null : "toc");
     return;
   }
+  if (target.closest("#toc-pin")) {
+    setSetting("outlinePinned", !currentSettings?.outlinePinned);
+    return;
+  }
+  const mapBtn = target.closest<HTMLButtonElement>("#toc-mindmap");
+  if (mapBtn) {
+    if (!mapBtn.disabled) {
+      openMindMap(mapBtn);
+    }
+    return;
+  }
 
   // Click elsewhere closes the open panel.
   if (openPanel && !target.closest(".rd-panel")) {
@@ -1136,7 +1232,90 @@ function updateActiveToc(): void {
       active = row;
     }
   }
+  const changed = !active.classList.contains("active");
   rows.forEach((r) => r.classList.toggle("active", r === active));
+  if (changed && document.body.classList.contains("toc-pinned")) {
+    active.scrollIntoView({ block: "nearest" });
+  }
+}
+
+/* ---------- mind map ---------- */
+
+/** Folded branches, by node key; kept while the same note is open. */
+const mindFolded = new Set<string>();
+
+function openMindMap(returnFocus: HTMLElement | null): void {
+  const tree = mindTree(root, currentSettings?.title || "Outline");
+  const font = getComputedStyle(document.body).fontFamily;
+
+  const show = (focusKey?: string) => {
+    const { svg, w, h } = drawMindMap(tree, mindFolded, font);
+    svg.addEventListener("keydown", onKey);
+    if (viewer?.onTap === act) {
+      setViewerContent(svg, w, h);
+    } else {
+      openViewer(svg, w, h, {
+        label: "Mind map",
+        hint: "Click a heading to go there \u00B7 scroll to zoom \u00B7 drag to move \u00B7 Esc to close",
+        returnFocus,
+        onTap: act,
+        maxFit: 1.4,
+      });
+    }
+    if (focusKey !== undefined) {
+      svg.querySelector<SVGGElement>(`.mm-node[data-key="${focusKey}"]`)?.focus();
+    }
+  };
+  // Keyboard folds keep focus on the node; mouse folds leave focus alone.
+  const fold = (key: string, on: boolean, keyboard: boolean) => {
+    if (on === mindFolded.has(key)) {
+      return;
+    }
+    if (on) {
+      mindFolded.add(key);
+    } else {
+      mindFolded.delete(key);
+    }
+    show(keyboard ? key : undefined);
+  };
+  const act = (el: Element) => {
+    const toggle = el.closest<SVGGElement>(".mm-fold");
+    if (toggle) {
+      const key = toggle.dataset.fold ?? "";
+      fold(key, !mindFolded.has(key), false);
+      return;
+    }
+    const node = el.closest<SVGGElement>(".mm-node");
+    if (node) {
+      const id = node.dataset.target;
+      closeDiagramViewer();
+      if (id) {
+        goTo(document.getElementById(id));
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }
+  };
+  function onKey(e: KeyboardEvent) {
+    const node = (e.target as Element).closest<SVGGElement>(".mm-node");
+    if (!node) {
+      return;
+    }
+    const key = node.dataset.key ?? "";
+    const expanded = node.getAttribute("aria-expanded");
+    if (e.key === "Enter" || e.key === " ") {
+      act(node);
+    } else if (e.key === "ArrowLeft" && expanded === "true") {
+      fold(key, true, true);
+    } else if (e.key === "ArrowRight" && expanded === "false") {
+      fold(key, false, true);
+    } else {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  show();
 }
 
 /* ---------- main loop ---------- */
@@ -1154,6 +1333,7 @@ window.addEventListener("message", (event: MessageEvent<any>) => {
     | { type: "update"; content: string; settings: ReaderSettings; diff?: DiffInfo }
     | { type: "scrollTo"; anchor: string }
     | { type: "diffScroll"; id: string; frac: number }
+    | { type: "mindmap" }
     | undefined;
   if (msg?.type === "update") {
     applySettings(msg.settings);
@@ -1171,5 +1351,7 @@ window.addEventListener("message", (event: MessageEvent<any>) => {
     scrollToAnchor(msg.anchor);
   } else if (msg?.type === "diffScroll") {
     followScroll(String(msg.id ?? ""), Number(msg.frac) || 0);
+  } else if (msg?.type === "mindmap") {
+    openMindMap(null);
   }
 });

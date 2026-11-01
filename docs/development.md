@@ -117,7 +117,8 @@ Then in VS Code: **Developer: Reload Window**.
 cursor (headless Chrome/Edge over the DevTools protocol; frames are encoded with ffmpeg).
 Set `CHROME` / `FFMPEG` if they are not found; without ffmpeg only the stills are made.
 `node scripts/screenshots.mjs --gif-only` re-records just the GIF, `--stills-only` skips
-it and `--diff-only` makes just `diff.png`. The stills are the `stills` / `tiles` lists,
+it, `--diff-only` makes just `diff.png` and `--still=<name>` makes one still (e.g.
+`--still=mindmap`). The stills are the `stills` / `tiles` lists,
 `shootDiff()` diffs `sample/README.md` against an older version made by `DIFF_EDITS`,
 and the GIF storyboard is `recordDemo()`. Run it after visible UI changes so the README stays accurate.
 

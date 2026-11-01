@@ -821,8 +821,15 @@ blockquote.callout[data-callout="example"] { --co: #986ee2; }
 
 #toc-panel.open { left: 0; }
 
+#toc-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px 8px 18px;
+}
+
 #toc-title {
-  padding: 0 18px 10px;
+  flex: 1;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1457,3 +1464,96 @@ body.diff-mode #toc-panel {
   height: calc(100% - 40px);
 }
 body.diff-mode .reading [id] { scroll-margin-top: 52px; }
+
+/* ---------------- Outline buttons and pinned outline ---------------- */
+
+.toc-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--rd-muted);
+  background: var(--rd-bg);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.toc-tool:hover:not(:disabled) {
+  color: var(--rd-fg);
+  border-color: var(--rd-border-strong);
+}
+.toc-tool[aria-pressed="true"] {
+  color: var(--rd-accent);
+  border-color: var(--rd-accent);
+}
+.toc-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.toc-tool svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+body.toc-pinned #root { padding-left: 280px; }
+body.toc-pinned #toc-toggle { display: none; }
+
+/* ---------------- Mind map ---------------- */
+
+#diagram-viewer svg.mindmap .mm-link {
+  fill: none;
+  stroke: color-mix(in srgb, var(--mm-c) 75%, var(--rd-bg));
+  stroke-width: 2;
+}
+#diagram-viewer svg.mindmap .mm-node {
+  cursor: pointer;
+  outline: none;
+}
+#diagram-viewer svg.mindmap .mm-node rect {
+  fill: color-mix(in srgb, var(--mm-c) 14%, var(--rd-bg));
+  stroke: var(--mm-c);
+  stroke-width: 1.5;
+}
+#diagram-viewer svg.mindmap .mm-d0 rect {
+  fill: color-mix(in srgb, var(--rd-accent) 22%, var(--rd-bg));
+  stroke-width: 2;
+}
+#diagram-viewer svg.mindmap .mm-d2 rect {
+  fill: var(--rd-bg);
+}
+#diagram-viewer svg.mindmap .mm-node text {
+  fill: var(--rd-fg);
+}
+#diagram-viewer svg.mindmap .mm-node:hover rect {
+  stroke-width: 2.5;
+}
+#diagram-viewer svg.mindmap .mm-node:focus-visible rect {
+  stroke: var(--rd-fg);
+  stroke-width: 2.5;
+}
+#diagram-viewer svg.mindmap .mm-fold {
+  cursor: pointer;
+}
+#diagram-viewer svg.mindmap .mm-fold circle {
+  fill: var(--rd-bg);
+  stroke: var(--mm-c);
+  stroke-width: 1.5;
+}
+#diagram-viewer svg.mindmap .mm-fold:hover circle {
+  stroke-width: 2.5;
+}
+#diagram-viewer svg.mindmap .mm-fold.folded circle {
+  fill: var(--mm-c);
+}
+#diagram-viewer svg.mindmap .mm-fold text {
+  fill: var(--rd-bg);
+  font-weight: 700;
+  pointer-events: none;
+}

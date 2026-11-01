@@ -23,6 +23,8 @@ const stills = [
   { name: "diagrams", query: "mode=dark&theme=2", at: "diagrams", height: 1070 },
   { name: "diagram-viewer", query: "mode=dark&theme=2", at: "diagrams", click: ".mermaid-block .diagram-expand" },
   { name: "settings", query: "mode=sepia&theme=1", at: "lists-and-tasks", open: "settings-toggle", light: true },
+  { name: "mindmap", query: "mode=dark&theme=2", open: "toc-toggle", click: "#toc-mindmap", height: 900 },
+  { name: "outline-pinned", query: "mode=light&theme=1&pin", at: "math", light: true },
 ];
 
 /* ---------------- page templates ---------------- */
@@ -246,7 +248,9 @@ const tiles = [
 
 async function shootStills() {
   const width = 1600;
-  for (const shot of stills) {
+  // --still=<name>: just that one.
+  const pick = process.argv.find((a) => a.startsWith("--still="))?.slice(8);
+  for (const shot of stills.filter((s) => !pick || s.name === pick)) {
     const height = shot.height ?? 1000;
     await setSize(width, height);
     await showPage(windowPage({ width, height, src: `${base}?${shot.query}`, light: shot.light }));
@@ -265,7 +269,7 @@ async function shootStills() {
     await capture(path.join(OUT, `${shot.name}.png`));
     console.log(`${OUT}/${shot.name}.png`);
   }
-  for (const t of tiles) {
+  for (const t of pick ? [] : tiles) {
     await setSize(width, t.height);
     await showPage(tilesPage({ width, ...t }));
     if (t.at) {
@@ -454,11 +458,12 @@ try {
   mkdirSync(OUT, { recursive: true });
 
   const only = (flag) => process.argv.includes(flag);
+  const pick = process.argv.some((a) => a.startsWith("--still="));
   if (!only("--gif-only")) {
     if (!only("--diff-only")) await shootStills();
-    await shootDiff();
+    if (!pick) await shootDiff();
   }
-  if (only("--stills-only") || only("--diff-only")) {
+  if (only("--stills-only") || only("--diff-only") || pick) {
     // skip the GIF
   } else if (ffmpeg) await recordDemo();
   else console.log("ffmpeg not found: skipped demo.gif (set FFMPEG to enable)");

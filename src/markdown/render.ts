@@ -16,6 +16,7 @@ export interface ReaderSettings extends ReaderPrefs {
   wiki: Record<string, string | null>; // resolved [[links]]
   embeds: Record<string, string | null>; // resolved ![[embeds]]
   readOnly?: boolean; // tasks can't be ticked (an old version shown in a diff)
+  title?: string; // file name without extension: the mind map's root when there is no single top heading
 }
 
 /** Render this side of a diff, marking blocks that differ from `other`. */

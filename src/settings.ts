@@ -12,6 +12,8 @@ export interface ReaderPrefs {
   fontFamily: string;
   fontSize: number;
   lineHeight: number;
+  /** The outline stays open beside the text. */
+  outlinePinned: boolean;
 }
 
 export type PrefKey = keyof ReaderPrefs;
@@ -22,6 +24,7 @@ export const PREF_DEFAULTS: ReaderPrefs = {
   fontFamily: "",
   fontSize: 18,
   lineHeight: 1.7,
+  outlinePinned: false,
 };
 
 export const PREF_BOUNDS = {
@@ -45,6 +48,8 @@ export function sanitizePref<K extends PrefKey>(key: K, value: unknown): ReaderP
         : undefined;
     case "fontFamily":
       return typeof value === "string" ? (value.trim().slice(0, 200) as ReaderPrefs[K]) : undefined;
+    case "outlinePinned":
+      return typeof value === "boolean" ? (value as ReaderPrefs[K]) : undefined;
     default: {
       if (typeof value !== "number" || !Number.isFinite(value)) {
         return undefined;

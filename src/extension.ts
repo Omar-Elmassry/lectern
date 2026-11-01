@@ -103,6 +103,14 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("lectern.showMindMap", () => {
+      if (!provider.showMindMap()) {
+        void vscode.window.showInformationMessage("Lectern: open a note in the reading view to see its mind map.");
+      }
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("lectern.openSettings", () => {
       vscode.commands.executeCommand("workbench.action.openSettings", `@ext:${context.extension.id}`);
     })

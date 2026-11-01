@@ -15,6 +15,11 @@ All notable changes to Lectern are listed here. The format follows
   goes back to the text diff.
 - **Lectern: Toggle Opening Markdown Changes in Reading View** makes Source Control open
   Markdown changes in the reading view by default.
+- **Mind map.** A button at the top of the outline (or **Lectern: Show Mind Map**) shows
+  the note's headings as a tree growing out from the title. Click a heading to jump to
+  it, fold branches, zoom and move around.
+- **Pin the outline.** A pin button keeps the outline open beside the text; the new
+  `lectern.outlinePinned` setting remembers it.
 
 ## [1.0.1] - 2026-10-22
 

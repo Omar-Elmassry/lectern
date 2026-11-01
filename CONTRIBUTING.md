@@ -14,7 +14,7 @@ You need Node 22+ and VS Code 1.82 or newer.
 ```sh
 npm install
 npm run typecheck   # TypeScript, no output
-npm test            # renderer, diff, math, emoji, wiki-link and settings tests
+npm test            # renderer, diff, mind map, math, emoji, wiki-link and settings tests
 npm run compile     # bundles into dist/
 ```
 

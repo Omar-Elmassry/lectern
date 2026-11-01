@@ -47,6 +47,13 @@ const pkg = {
         icon: "$(go-to-file)",
       },
       {
+        command: "lectern.showMindMap",
+        title: "Show Mind Map",
+        category: "Lectern",
+        icon: "$(type-hierarchy)",
+        enablement: "activeCustomEditorId == 'lectern.reader' || lectern.inDiff",
+      },
+      {
         command: "lectern.toggleDiffDefault",
         title: "Toggle Opening Markdown Changes in Reading View",
         category: "Lectern",
@@ -122,6 +129,11 @@ const pkg = {
           minimum: 1.2,
           maximum: 2.4,
           description: "Line height multiplier for reading text.",
+        },
+        "lectern.outlinePinned": {
+          type: "boolean",
+          default: false,
+          description: "Keep the outline open beside the text instead of sliding over it.",
         },
       },
     },
