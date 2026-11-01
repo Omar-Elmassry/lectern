@@ -6,6 +6,8 @@ All notable changes to Lectern are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-02
+
 ### Added
 
 - **Reading-view diffs.** In a diff of a Markdown file, `Ctrl+Alt+R` or the book icon
@@ -23,6 +25,8 @@ All notable changes to Lectern are listed here. The format follows
   it, fold branches, zoom and move around.
 - **Pin the outline.** A pin button keeps the outline open beside the text; the new
   `lectern.outlinePinned` setting remembers it.
+- Diffs work for changes from VS Code's Source Control and for commits opened from
+  GitLens.
 
 ## [1.0.1] - 2026-10-22
 
@@ -86,6 +90,7 @@ The first release of Lectern: a calm, distraction-free reading view for Markdown
 - Scripts in Markdown never run, links can't trigger VS Code commands, and formulas and
   diagrams can't add links or scripts.
 
-[Unreleased]: https://github.com/Omar-Elmassry/lectern/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/Omar-Elmassry/lectern/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Omar-Elmassry/lectern/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/Omar-Elmassry/lectern/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Omar-Elmassry/lectern/releases/tag/v1.0.0
