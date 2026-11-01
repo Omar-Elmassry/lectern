@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { PAIR_WINDOW_MS, age, diskKey, diskUri, isGitUri, reopenActiveWith, sideLabel } from "./diffPairing";
+import { PAIR_WINDOW_MS, age, commitTime, diskKey, diskUri, isGitUri, reopenActiveWith, sideLabel } from "./diffPairing";
 import { ReaderSettings, WikiMaps } from "./markdown/render";
 import { WikiResolver } from "./markdown/wiki";
 import { getNonce } from "./nonce";
@@ -168,7 +168,7 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
 
   /** Open the mind map in the focused reader; false when no reader is focused. */
   showMindMap(): boolean {
-    const entry = [...this.entries].find((e) => e.panel.active);
+    const entry = [...this.entries].find((e) => e.panel.active) ?? this.activeDiffSides()[1];
     if (!entry) {
       return false;
     }
@@ -176,16 +176,45 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
     return true;
   }
 
-  /** True when the focused reader is one side of a diff. */
+  diffSidesForTests(): Array<{ uri: string; side?: string; active: boolean }> {
+    const active = this.activeDiffSides();
+    return [...this.entries]
+      .filter((e) => e.partner)
+      .map((e) => ({ uri: e.document.uri.toString(), side: e.side, active: active.includes(e) }));
+  }
+
+  /** True when the active editor is a diff shown in the reading view. */
   isDiffActive(): boolean {
-    return [...this.entries].some((e) => e.partner && e.panel.active);
+    return this.activeDiffSides().length > 0;
+  }
+
+  /**
+   * The two readers of the active diff tab, original first, or [] when the
+   * active tab is something else. A webview's own `active` flag is not
+   * reliable inside a diff editor, and the tab API calls such a tab's input
+   * unknown, so: an unknown active tab with a paired reader visible in it.
+   */
+  private activeDiffSides(): ReaderEntry[] {
+    const group = vscode.window.tabGroups.activeTabGroup;
+    const tab = group.activeTab;
+    if (!tab || tab.input !== undefined) {
+      return [];
+    }
+    const side = [...this.entries].find(
+      (e) => e.partner && e.panel.visible && e.panel.viewColumn === group.viewColumn
+    );
+    if (!side?.partner) {
+      return [];
+    }
+    return side.side === "original" ? [side, side.partner] : [side.partner, side];
   }
 
   /**
    * VS Code leaves `activeCustomEditorId` empty when custom editors sit inside a
    * diff, so the reading-view diff's keybinding and title button use this key.
+   * Recomputed whenever tabs change, so it can't stay on after leaving a diff.
    */
-  private updateDiffContext(): void {
+  updateDiffContext(): void {
     const active = this.isDiffActive();
     if (active !== this.diffContext) {
       this.diffContext = active;
@@ -217,18 +246,41 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
     if (!match) {
       return;
     }
-    // Ties (two commits) keep the order VS Code opened them in: left side first.
+    // Ties (two commits) start in the order VS Code opened them, then the
+    // commit dates decide.
     const a = age(entry.document.uri);
     const b = age(match.document.uri);
     const entryFirst = a < b || (a === b && entry.opened < match.opened);
-    const [original, modified] = entryFirst ? [entry, match] : [match, entry];
+    if (entryFirst) {
+      this.setSides(entry, match);
+    } else {
+      this.setSides(match, entry);
+    }
+    if (a === b) {
+      void this.orderByCommitDate(entry, match);
+    }
+    this.updateDiffContext();
+  }
+
+  private setSides(original: ReaderEntry, modified: ReaderEntry): void {
     original.partner = modified;
     original.side = "original";
     modified.partner = original;
     modified.side = "modified";
     void original.update();
     void modified.update();
-    this.updateDiffContext();
+  }
+
+  /** Two commits of one file: the older commit is the original side. */
+  private async orderByCommitDate(x: ReaderEntry, y: ReaderEntry): Promise<void> {
+    const [tx, ty] = await Promise.all([commitTime(x.document.uri), commitTime(y.document.uri)]);
+    if (tx === undefined || ty === undefined || tx === ty || x.partner !== y) {
+      return;
+    }
+    const [older, newer] = tx < ty ? [x, y] : [y, x];
+    if (older.side !== "original") {
+      this.setSides(older, newer);
+    }
   }
 
   private getHtml(webview: vscode.Webview): string {

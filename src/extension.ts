@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { reopenActiveWith } from "./diffPairing";
+import { diskKey, reopenActiveWith } from "./diffPairing";
 import { WikiResolver } from "./markdown/wiki";
 import { ReaderEditorProvider } from "./readerProvider";
 
@@ -19,11 +19,15 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("lectern.open", async (uri?: vscode.Uri) => {
-      // In a text diff, show the same diff in the reading view.
+      // In a text diff, show the same diff in the reading view. The title-bar
+      // button passes the file the diff is of, which for a commit diff is the
+      // file on disk rather than either side, so compare files, not URIs.
       const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+      const sameFile = (a: vscode.Uri, b: vscode.Uri) =>
+        a.toString() === b.toString() || (diskKey(a) !== undefined && diskKey(a) === diskKey(b));
       if (
         input instanceof vscode.TabInputTextDiff &&
-        (!uri || uri.toString() === input.modified.toString() || uri.toString() === input.original.toString())
+        (!uri || sameFile(uri, input.modified) || sameFile(uri, input.original))
       ) {
         await reopenActiveWith("lectern.reader");
         return;
@@ -45,7 +49,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("lectern.openSource", async (uri?: vscode.Uri) => {
       // In a reading-view diff, go back to the text diff.
-      if (!uri && provider.isDiffActive()) {
+      if (provider.isDiffActive()) {
         await reopenActiveWith("default");
         return;
       }
@@ -102,6 +106,12 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Keep the reading-diff context key in step with the active tab.
+  context.subscriptions.push(
+    vscode.window.tabGroups.onDidChangeTabs(() => provider.updateDiffContext()),
+    vscode.window.tabGroups.onDidChangeTabGroups(() => provider.updateDiffContext())
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand("lectern.showMindMap", () => {
       if (!provider.showMindMap()) {
@@ -115,6 +125,12 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.executeCommand("workbench.action.openSettings", `@ext:${context.extension.id}`);
     })
   );
+
+  // For the end-to-end tests only: which documents are paired, and as which side.
+  if (process.env.LECTERN_TEST) {
+    return { diffSides: () => provider.diffSidesForTests() };
+  }
+  return undefined;
 }
 
 export function deactivate() {}

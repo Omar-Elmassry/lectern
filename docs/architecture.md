@@ -113,8 +113,16 @@ separate Lectern editors side by side, one per version. The extension API does n
 they belong together (the tab's input is unknown to extensions), so
 `ReaderEditorProvider.pairDiffSides()` pairs them itself: two readers for the same file
 on disk, at least one of them a `git:` version, opened in the same editor group within
-3 seconds. The older version (`HEAD` < index < working tree) is the original side.
-Each side's `update` then carries the other side's text.
+3 seconds. The older version (`HEAD` < index < working tree) is the original side;
+for two commits, `commitTime()` asks the git extension for both commit dates. Each
+side's `update` then carries the other side's text.
+
+Inside such a diff VS Code leaves `activeCustomEditorId` empty, a webview's `active`
+flag is unreliable, and keys pressed in the webview never reach VS Code's keybindings.
+So the extension sets its own `lectern.inDiff` context key (for the title-bar button)
+from the tab state on every tab change, and the diff page handles `Ctrl+Alt+R` itself
+and posts `openTextDiff`. The book button passes the file on disk even for a commit
+diff, so `lectern.open` matches the diff by file, not by URI.
 
 `renderMarkdown(..., { side, other })` lexes both texts and runs `diffBlocks()` over the
 top-level blocks, always from original to modified, so both sides get the same list of

@@ -47,7 +47,12 @@ const vscodeStub = {
     activeColorTheme: { kind: 2 },
     onDidChangeActiveColorTheme: () => ({ dispose() {} }),
     activeTextEditor: undefined,
-    tabGroups: { activeTabGroup: { activeTab: null }, onDidChangeActiveTabGroup: () => ({ dispose() {} }) },
+    tabGroups: {
+      activeTabGroup: { activeTab: null },
+      onDidChangeActiveTabGroup: () => ({ dispose() {} }),
+      onDidChangeTabs: () => ({ dispose() {} }),
+      onDidChangeTabGroups: () => ({ dispose() {} }),
+    },
     showErrorMessage: (m) => console.error("VS CODE ERROR:", m),
     showInformationMessage: () => Promise.resolve(undefined),
     createStatusBarItem: () => ({

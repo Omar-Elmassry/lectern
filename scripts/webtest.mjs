@@ -150,7 +150,11 @@ const counts = document.querySelector("#diff-bar .db-counts")?.textContent;
 const addedBlock = !!document.querySelector("#root .diff-added");
 console.log("diff words:", words, "counts:", counts);
 document.getElementById("db-text").click();
-const askedText = posted[posted.length - 1]?.type === "openTextDiff";
+let askedText = posted[posted.length - 1]?.type === "openTextDiff";
+// Ctrl+Alt+R inside a diff: VS Code does not forward it from a diff, so the page handles it.
+posted.length = 0;
+window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "r", code: "KeyR", ctrlKey: true, altKey: true, bubbles: true }));
+askedText = askedText && posted[posted.length - 1]?.type === "openTextDiff";
 window.dispatchEvent(new window.MessageEvent("message", { data: { type: "update", content: "# T\n", settings: diffSettings } }));
 const barGone = !document.getElementById("diff-bar") && !document.body.classList.contains("diff-mode");
 const diffOk =

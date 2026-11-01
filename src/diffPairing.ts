@@ -86,6 +86,30 @@ export function sideLabel(uri: vscode.Uri, side: "original" | "modified"): strin
   return `${side === "original" ? "Before" : "After"} · ${where}`;
 }
 
+/** The small part of the git extension's API that is used here. */
+interface GitApi {
+  getRepository(uri: vscode.Uri): { getCommit(ref: string): Promise<{ commitDate?: Date; authorDate?: Date }> } | null;
+}
+
+/** When the commit a `git:` version comes from was made, or undefined if unknown. */
+export async function commitTime(uri: vscode.Uri): Promise<number | undefined> {
+  const git = gitParams(uri);
+  if (!git || !git.ref || git.ref.startsWith("~")) {
+    return undefined; // the index, not a commit
+  }
+  try {
+    const ext = vscode.extensions.getExtension<{ getAPI(v: 1): GitApi }>("vscode.git");
+    if (!ext) {
+      return undefined;
+    }
+    const api = (ext.isActive ? ext.exports : await ext.activate()).getAPI(1);
+    const commit = await api.getRepository(vscode.Uri.file(git.path))?.getCommit(git.ref);
+    return (commit?.commitDate ?? commit?.authorDate)?.getTime();
+  } catch {
+    return undefined;
+  }
+}
+
 /** Reopen the active editor (or diff) with another editor, e.g. "default" for text. */
 export async function reopenActiveWith(editorId: string): Promise<void> {
   try {

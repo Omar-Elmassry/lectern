@@ -225,7 +225,18 @@ export function initDiffSync(): void {
   );
 
   window.addEventListener("keydown", (e) => {
-    if (!document.body.classList.contains("diff-mode") || !e.altKey || e.ctrlKey || e.metaKey) {
+    if (!document.body.classList.contains("diff-mode") || !e.altKey) {
+      return;
+    }
+    // VS Code doesn't pass keys from a webview inside a diff editor on to its
+    // keybindings, so the diff handles Ctrl+Alt+R (Cmd+Alt+R) itself.
+    const mac = /Mac/.test(navigator.platform);
+    if ((mac ? e.metaKey : e.ctrlKey) && (e.code === "KeyR" || e.key.toLowerCase() === "r")) {
+      e.preventDefault();
+      post({ type: "openTextDiff" });
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
       return;
     }
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
