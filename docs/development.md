@@ -73,10 +73,13 @@ committed file is out of date.
   neither computes CSS nor models disabled-control click suppression** (that hid the
   "checkboxes cannot be clicked" bug), so verify interaction in a real browser too.
 - `scripts/hosttest.mjs` — stubs a fake `vscode` module via `Module._load`, exercises
-  `ReaderEditorProvider` end to end (`ROUND TRIP OK`, `LINK SCHEMES OK`).
+  `ReaderEditorProvider` end to end (`ROUND TRIP OK`, `LINK SCHEMES OK`, and
+  `DIFF PAIRING OK` for a fake git diff: pairing, scroll relay, unpairing on close).
 - `scripts/preview.mjs [file.md] [port]` — serves the real webview bundle with stubbed
   theme variables at `http://127.0.0.1:8321/?mode=<mode>&theme=<1-4>` for visual and
   keyboard checks in Chromium. Posted messages are recorded in `window.__posted`.
+  `/diff?old=a.md&new=b.md` shows a reading-view diff side by side, with scroll sync
+  relayed between the two frames as the host does.
 
 ### Bundling
 `esbuild.mjs` runs three builds with `outbase: "src"`: the host (`dist/extension.js`,
@@ -114,7 +117,9 @@ Then in VS Code: **Developer: Reload Window**.
 cursor (headless Chrome/Edge over the DevTools protocol; frames are encoded with ffmpeg).
 Set `CHROME` / `FFMPEG` if they are not found; without ffmpeg only the stills are made.
 `node scripts/screenshots.mjs --gif-only` re-records just the GIF, `--stills-only` skips
-it. The stills are the `stills` / `tiles` lists and the GIF storyboard is `recordDemo()`. Run it after visible UI changes so the README stays accurate.
+it and `--diff-only` makes just `diff.png`. The stills are the `stills` / `tiles` lists,
+`shootDiff()` diffs `sample/README.md` against an older version made by `DIFF_EDITS`,
+and the GIF storyboard is `recordDemo()`. Run it after visible UI changes so the README stays accurate.
 
 ### Releasing
 1. Move the **Unreleased** notes in `CHANGELOG.md` under the new version.

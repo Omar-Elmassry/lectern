@@ -22,12 +22,12 @@ keeps them strictly separated:
 ```
 
 - Host side: `src/extension.ts` (activation, commands), `src/readerProvider.ts`
-  (the `CustomTextEditorProvider`) and `src/markdown/wiki.ts` (`WikiResolver`). Only
-  these may `import "vscode"`.
-- Webview side: `src/webview/main.ts` + `src/webview/style.css`, and
+  (the `CustomTextEditorProvider`), `src/diffPairing.ts` (diff helpers) and
+  `src/markdown/wiki.ts` (`WikiResolver`). Only these may `import "vscode"`.
+- Webview side: `src/webview/main.ts`, `src/webview/diffview.ts` + `src/webview/style.css`, and
   `src/webview/mermaid.ts` (a separate on-demand bundle). No Node/vscode APIs, only
   `acquireVsCodeApi()` and DOM. Bundled as browser IIFEs.
-- Shared pure code: `src/markdown/render.ts`, `math.ts`, `emoji.ts`, `frontmatter.ts`,
+- Shared pure code: `src/markdown/render.ts`, `diff.ts`, `math.ts`, `emoji.ts`, `frontmatter.ts`,
   `util.ts` and `src/settings.ts`. None of them import `vscode`, so `npm test` runs them
   in plain Node.
 
@@ -35,10 +35,12 @@ keeps them strictly separated:
 
 | Path | Role |
 | --- | --- |
-| `src/extension.ts` | `activate()`: creates the `WikiResolver`, registers the custom editor provider + 3 commands (`lectern.open`, `lectern.openSource`, `lectern.openSettings`). |
-| `src/readerProvider.ts` | Provider: HTML/CSP, settings collection, message handling, task edits, link opening, open-panel registry. |
+| `src/extension.ts` | `activate()`: creates the `WikiResolver`, registers the custom editor provider + 4 commands (`lectern.open`, `lectern.openSource`, `lectern.toggleDiffDefault`, `lectern.openSettings`). In a diff, `open` and `openSource` reopen the whole diff with the other editor. |
+| `src/readerProvider.ts` | Provider: HTML/CSP, settings collection, message handling, task edits, link opening, open-panel registry, pairing the two sides of a diff. |
+| `src/diffPairing.ts` | Reads `git:` URIs (which file, which version), labels diff sides, `reopenActiveWith()`. |
 | `src/settings.ts` | `lectern.*` keys, defaults, bounds, `sanitizePref()`. Single source of truth for host and webview. |
-| `src/markdown/render.ts` | `renderMarkdown(content, settings) -> {html, taskLines, words}`; marked v13 + marked-highlight + highlight.js; callouts, wiki-link extension, task line mapping, heading ids, asset URLs. |
+| `src/markdown/diff.ts` | `diffBlocks()` (LCS over top-level blocks, similar blocks paired as changes) and `diffWords()`. Pure. |
+| `src/markdown/render.ts` | `renderMarkdown(content, settings, diff?) -> {html, taskLines, words, diff?}`; marked v13 + marked-highlight + highlight.js; callouts, wiki-link extension, task line mapping, heading ids, asset URLs. |
 | `src/markdown/math.ts` | `$…$` / `$$…$$` marked extensions and `renderTex()` (KaTeX, `trust: false`). ```` ```math ```` and ```` ```mermaid ```` fences go through the `code` renderer in `render.ts`. |
 | `src/markdown/emoji.ts` | `:shortcode:` inline extension backed by `gemoji`'s `nameToEmoji`. `start()` only stops at known codes so bare URLs still autolink. |
 | `src/markdown/frontmatter.ts` | Splits leading YAML front matter off and renders it as a properties list. |
@@ -46,9 +48,10 @@ keeps them strictly separated:
 | `src/markdown/wiki.ts` | `WikiResolver` — resolves `[[link]]` / `![[embed]]` targets; cached, cleared on file create/delete/rename. |
 | `src/nonce.ts` | CSP nonce (crypto). |
 | `src/webview/main.ts` | Shell, panels, settings UI, TOC, image lightbox, Mermaid loading/theming and the full-screen diagram viewer, render loop, message plumbing, host-stylesheet stripping. |
+| `src/webview/diffview.ts` | Diff UI: word highlights inside changed blocks, the diff bar (counts, previous/next, Text diff) and scroll sync. |
 | `src/webview/mermaid.ts` | Entry for `dist/webview/mermaid.js` (~5 MB). Sets `window.lecternMermaid`; loaded on demand by `main.ts`. |
 | `src/webview/style.css` | All theming (token blocks per mode/theme) and layout. |
-| `test/*.test.mjs` | `node:test` suites run by `npm test`: renderer (tasks, callouts, headings, assets, wiki, front matter, math, emoji, words), wiki resolver, settings schema. |
+| `test/*.test.mjs` | `node:test` suites run by `npm test`: renderer (tasks, callouts, headings, assets, wiki, front matter, math, emoji, words, diffs), wiki resolver, settings schema. |
 | `scripts/*.mjs` | `make-package` (generates `package.json`), `test` (bundles + runs `test/`), `webtest`, `hosttest`, `preview` (serves the real webview in a browser), `screenshots` (README images), `notices` (writes `THIRD_PARTY_NOTICES.md` during production builds). |
 | `esbuild.mjs` | Three builds: host (Node CJS, `vscode` external), webview `main` and webview `mermaid` (browser IIFEs). KaTeX fonts ship as woff2 only. Production builds also regenerate `THIRD_PARTY_NOTICES.md`. |
 | `dist/` | Build output that ships in the VSIX: `extension.js`, `webview/main.js`, `webview/main.css`, `webview/mermaid.js` and `webview/fonts/*.woff2` (KaTeX). |
@@ -64,12 +67,15 @@ Webview → host (`vscode.postMessage`):
 | `openLink` | `{ href: string }` | http(s)/mailto/tel/ftp(s) → `openExternal`; any other scheme is blocked. Paths (relative, `/workspace-root`, `C:/…`, `file:`) open in the editor, markdown in Lectern, with `#fragment` scrolling. |
 | `setSetting` | `{ key, value }` | `sanitizePref()` then writes one `lectern.*` value to Global settings. |
 | `resetSettings` | — | Sets all keys to `undefined` (removes overrides → defaults). |
+| `diffScroll` | `{ id: string, frac: number }` | Diff only: relayed to the other side's panel. |
+| `openTextDiff` | — | Diff only: reopens the diff as VS Code's text diff. |
 
 Host → webview:
 
 | Message | Payload | Effect |
 | --- | --- | --- |
-| `update` | `{ content: string, settings: ReaderSettings }` | Re-renders and re-applies settings. Sent on `ready`, document change (debounced 150 ms), `lectern` config change and color theme change. |
+| `update` | `{ content: string, settings: ReaderSettings, diff?: { side, other, label } }` | Re-renders and re-applies settings. Sent on `ready`, document change (debounced 150 ms; in a diff, a change to either side), `lectern` config change and color theme change. |
+| `diffScroll` | `{ id: string, frac: number }` | Diff only: the other side scrolled; follow it. |
 | `scrollTo` | `{ anchor: string }` | Scrolls to a heading by id, percent-decoded id or `slugify()`d text. |
 
 `makeUpdater()` tags each update with a ticket so a slow wiki resolution cannot paint
@@ -91,7 +97,38 @@ Declared in `package.json` (template: `scripts/make-package.mjs`) and mirrored i
 `ReaderSettings` (what the webview receives) is those prefs plus `themeKind`
 (`vscode.ColorThemeKind`: 1 light, 2 dark, 3 high contrast, 4 high contrast light),
 `docBase` / `rootBase` (webview URI bases for document- and workspace-relative
-resources), and the `wiki` / `embeds` maps of resolved targets.
+resources), the `wiki` / `embeds` maps of resolved targets, and `readOnly` (task
+checkboxes disabled: the old side of a diff).
+
+## Reading-view diffs
+
+When the user opens a diff of a Markdown file with Lectern (the book button or
+`Ctrl+Alt+R` in a text diff, or `workbench.diffEditorAssociations`), VS Code opens two
+separate Lectern editors side by side, one per version. The extension API does not say
+they belong together (the tab's input is unknown to extensions), so
+`ReaderEditorProvider.pairDiffSides()` pairs them itself: two readers for the same file
+on disk, at least one of them a `git:` version, opened in the same editor group within
+3 seconds. The older version (`HEAD` < index < working tree) is the original side.
+Each side's `update` then carries the other side's text.
+
+`renderMarkdown(..., { side, other })` lexes both texts and runs `diffBlocks()` over the
+top-level blocks, always from original to modified, so both sides get the same list of
+operations. A `processAllTokens` hook inserts HTML marker tokens around this side's
+blocks: `.diff-changed`, `.diff-added` or `.diff-removed` wrappers, `.diff-gap` lines
+where the other side has blocks this side doesn't, and zero-height `.diff-anchor`s
+before unchanged blocks. Every marker has `data-sync=<operation index>`, so the same id
+exists on both sides. Inserting tokens (not text) keeps task line numbers correct.
+
+In the webview, `highlightWords()` renders the other side's version of each changed
+block, compares the plain text with `diffWords()` and wraps the differences in
+`<ins>` / `<del>`, skipping formulas and diagrams and blocks where more than 60%
+changed. Scroll sync posts the nearest `data-sync` id above the line under the diff
+bar plus a fraction of the way to the next one; the other side scrolls to the same
+point.
+
+The original side (any `git:` document) is read-only. Its images, links and wiki links
+resolve against the file on disk (`diskUri()`), since a `git:` URI has no folder of
+its own.
 
 ## Rendering pipeline (`render.ts`)
 

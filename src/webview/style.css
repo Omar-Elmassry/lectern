@@ -1290,3 +1290,170 @@ body.dv-open #progress-bar {
   border-radius: 5px;
   box-shadow: none;
 }
+
+/* ---------------- Diff (one side of a Markdown diff) ---------------- */
+
+body {
+  --rd-diff-add: #3f9b4f;
+  --rd-diff-del: #d64a42;
+  --rd-diff-chg: #c98a3d;
+}
+body[data-theme="dark"] {
+  --rd-diff-add: #57ab5a;
+  --rd-diff-del: #e5534b;
+  --rd-diff-chg: #d0996b;
+}
+body {
+  --rd-diff-add-bg: color-mix(in srgb, var(--rd-diff-add) 12%, var(--rd-bg));
+  --rd-diff-del-bg: color-mix(in srgb, var(--rd-diff-del) 12%, var(--rd-bg));
+  --rd-diff-add-word: color-mix(in srgb, var(--rd-diff-add) 32%, var(--rd-bg));
+  --rd-diff-del-word: color-mix(in srgb, var(--rd-diff-del) 30%, var(--rd-bg));
+}
+
+body.diff-mode .reading {
+  padding-top: 76px;
+}
+
+.reading .diff {
+  position: relative;
+  display: flow-root;
+  margin: 0.4em -16px;
+  padding: 0 16px;
+  border-radius: 6px;
+}
+.reading .diff::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--diff-c);
+}
+.reading .diff-added { --diff-c: var(--rd-diff-add); background: var(--rd-diff-add-bg); }
+.reading .diff-removed { --diff-c: var(--rd-diff-del); background: var(--rd-diff-del-bg); }
+.reading .diff-changed { --diff-c: var(--rd-diff-chg); }
+
+.reading ins.diff-word,
+.reading del.diff-word {
+  border-radius: 3px;
+  padding: 0 1px;
+  color: inherit;
+}
+.reading ins.diff-word {
+  text-decoration: none;
+  background: var(--rd-diff-add-word);
+}
+.reading del.diff-word {
+  background: var(--rd-diff-del-word);
+  text-decoration: line-through;
+  text-decoration-color: var(--rd-diff-del);
+}
+
+.reading .diff-gap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0.6em -16px;
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: 11.5px;
+  line-height: 1;
+  color: var(--rd-muted);
+  user-select: none;
+}
+.reading .diff-gap::before,
+.reading .diff-gap::after {
+  content: "";
+  flex: 1;
+  border-top: 2px dashed var(--diff-c);
+}
+.reading .diff-gap::before { flex: 0 0 16px; }
+.reading .diff-gap-added { --diff-c: var(--rd-diff-add); }
+.reading .diff-gap-removed { --diff-c: var(--rd-diff-del); }
+
+.reading .diff-anchor {
+  display: block;
+  height: 0;
+}
+
+@keyframes diff-flash {
+  from { outline-color: var(--diff-c, var(--rd-accent)); }
+  to { outline-color: transparent; }
+}
+.reading .diff-flash {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  animation: diff-flash 1.2s ease-out;
+}
+
+#diff-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 12px 0 14px;
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: 12.5px;
+  line-height: 1;
+  color: var(--rd-fg);
+  background: var(--rd-bg);
+  border-bottom: 1px solid var(--rd-border);
+}
+#diff-bar .db-side {
+  font-weight: 600;
+  white-space: nowrap;
+}
+body[data-diff-side="original"] #diff-bar .db-side { color: var(--rd-diff-del); }
+body[data-diff-side="modified"] #diff-bar .db-side { color: var(--rd-diff-add); }
+#diff-bar .db-counts {
+  display: flex;
+  gap: 10px;
+  color: var(--rd-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+#diff-bar .db-add { color: var(--rd-diff-add); }
+#diff-bar .db-del { color: var(--rd-diff-del); }
+#diff-bar .db-chg { color: var(--rd-diff-chg); }
+#diff-bar .db-spacer { flex: 1; }
+#diff-bar .db-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  min-width: 26px;
+  padding: 0 6px;
+  font: inherit;
+  color: var(--rd-fg);
+  background: var(--rd-bg);
+  border: 1px solid var(--rd-border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+}
+#diff-bar .db-btn:hover { border-color: var(--rd-accent); }
+#diff-bar .db-btn:focus-visible {
+  outline: 2px solid var(--rd-accent);
+  outline-offset: 2px;
+}
+#diff-bar .db-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#diff-bar .db-text { padding: 0 10px; }
+body.diff-mode #progress-bar { top: 40px; }
+body.diff-mode #toc-panel {
+  top: 40px;
+  height: calc(100% - 40px);
+}
+body.diff-mode .reading [id] { scroll-margin-top: 52px; }

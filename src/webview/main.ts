@@ -1,6 +1,7 @@
 import type { ReaderSettings, RenderResult } from "../markdown/render";
 import { renderMarkdown } from "../markdown/render";
 import { slugify } from "../markdown/util";
+import { followScroll, highlightWords, initDiffSync, revealFirstChange, updateDiffBar, type DiffInfo } from "./diffview";
 import { PREF_BOUNDS, PREF_DEFAULTS, sanitizePref, type PrefKey } from "../settings";
 import "katex/dist/katex.min.css";
 import "./style.css";
@@ -358,10 +359,10 @@ function prettifyLang(raw: string): string {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-function render(content: string, s: ReaderSettings): void {
+function render(content: string, s: ReaderSettings, diff?: DiffInfo): void {
   let result: RenderResult;
   try {
-    result = renderMarkdown(content, s);
+    result = renderMarkdown(content, s, diff && { side: diff.side, other: diff.other });
   } catch (err) {
     result = { html: `<pre>Rendering error: ${String(err)}</pre>`, taskLines: [], words: 0 };
   }
@@ -373,6 +374,12 @@ function render(content: string, s: ReaderSettings): void {
     : `<p class="empty-note">This note is empty. Start writing in the source editor and it will appear here.</p>`;
 
   root.replaceChildren(reading);
+
+  // Before the code blocks get their buttons: word diffs compare plain text.
+  if (diff && result.diff) {
+    highlightWords(reading, result.diff, diff, s);
+  }
+  updateDiffBar(diff, result.diff, (m) => vscode.postMessage(m));
 
   // Mark list items that contain checkboxes for styling.
   root.querySelectorAll("input.task-cb").forEach((el) => {
@@ -1135,21 +1142,34 @@ function updateActiveToc(): void {
 /* ---------- main loop ---------- */
 
 ensureShell();
+initDiffSync();
 vscode.postMessage({ type: "ready" });
+
+/** A diff opens at its first change; the other side follows by scroll sync. */
+let diffOpened = false;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 window.addEventListener("message", (event: MessageEvent<any>) => {
   const msg = event.data as
-    | { type: "update"; content: string; settings: ReaderSettings }
+    | { type: "update"; content: string; settings: ReaderSettings; diff?: DiffInfo }
     | { type: "scrollTo"; anchor: string }
+    | { type: "diffScroll"; id: string; frac: number }
     | undefined;
   if (msg?.type === "update") {
     applySettings(msg.settings);
     state.scrollY = window.scrollY;
-    render(msg.content, msg.settings);
+    render(msg.content, msg.settings, msg.diff);
     // Restore scroll position across re-renders.
     window.scrollTo(0, state.scrollY);
+    if (msg.diff && !diffOpened) {
+      diffOpened = true;
+      if (msg.diff.side === "modified" && window.scrollY === 0) {
+        revealFirstChange();
+      }
+    }
   } else if (msg?.type === "scrollTo") {
     scrollToAnchor(msg.anchor);
+  } else if (msg?.type === "diffScroll") {
+    followScroll(String(msg.id ?? ""), Number(msg.frac) || 0);
   }
 });

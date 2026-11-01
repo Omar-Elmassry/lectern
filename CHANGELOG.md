@@ -6,6 +6,16 @@ All notable changes to Lectern are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Reading-view diffs.** In a diff of a Markdown file, `Ctrl+Alt+R` or the book icon
+  shows the old and new versions as reading pages side by side: added blocks in green,
+  removed blocks in red, changed words highlighted, and both sides scrolling together.
+  A bar at the top counts the changes, jumps between them (`Alt+Up` / `Alt+Down`) and
+  goes back to the text diff.
+- **Lectern: Toggle Opening Markdown Changes in Reading View** makes Source Control open
+  Markdown changes in the reading view by default.
+
 ## [1.0.1] - 2026-10-22
 
 ### Fixed

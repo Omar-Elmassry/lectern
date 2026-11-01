@@ -10,6 +10,7 @@ await esbuild.build({
     settings: "src/settings.ts",
     math: "src/markdown/math.ts",
     emoji: "src/markdown/emoji.ts",
+    diff: "src/markdown/diff.ts",
   },
   external: ["vscode"],
   bundle: true,

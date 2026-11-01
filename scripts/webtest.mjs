@@ -135,3 +135,25 @@ const reset =
   document.documentElement.style.getPropertyValue("--rd-font-size") === "18px";
 console.log("reset applied:", reset);
 if (!reset) process.exitCode = 1;
+
+// --- one side of a diff ---
+const diffSettings = { readingWidth: 760, fontFamily: "", fontSize: 18, lineHeight: 1.7, themeKind: 2, docBase: "x", wiki: {}, embeds: {} };
+const sendDiff = (diff) =>
+  window.dispatchEvent(
+    new window.MessageEvent("message", {
+      data: { type: "update", content: "# T\n\nThe quick red fox.\n\nNew block.\n", settings: diffSettings, diff },
+    })
+  );
+sendDiff({ side: "modified", other: "# T\n\nThe quick brown fox.\n", label: "After · Working tree" });
+const words = [...document.querySelectorAll("#root ins.diff-word")].map((e) => e.textContent);
+const counts = document.querySelector("#diff-bar .db-counts")?.textContent;
+const addedBlock = !!document.querySelector("#root .diff-added");
+console.log("diff words:", words, "counts:", counts);
+document.getElementById("db-text").click();
+const askedText = posted[posted.length - 1]?.type === "openTextDiff";
+window.dispatchEvent(new window.MessageEvent("message", { data: { type: "update", content: "# T\n", settings: diffSettings } }));
+const barGone = !document.getElementById("diff-bar") && !document.body.classList.contains("diff-mode");
+const diffOk =
+  words.join("|") === "red" && counts === "+1 added ~1 changed" && addedBlock && askedText && barGone;
+console.log("DIFF VIEW OK:", diffOk);
+if (!diffOk) process.exitCode = 1;

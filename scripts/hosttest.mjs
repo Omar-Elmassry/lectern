@@ -9,7 +9,8 @@ const configSubs = [];
 const posted = [];
 
 class FakeUri {
-  constructor(p) { this.fsPath = p; this.path = p; }
+  constructor(p, scheme = "file", query = "") { this.fsPath = p; this.path = p; this.scheme = scheme; this.query = query; }
+  toString() { return `${this.scheme}:${this.path}${this.query ? "?" + this.query : ""}`; }
   static joinPath(base, ...parts) { return new FakeUri(require("path").posix.join(base.fsPath.replace(/\\/g, "/"), ...parts)); }
   static file(p) { return new FakeUri(p); }
   static parse(s) { return new FakeUri(s.replace(/^https?:\/\//, "")); }
@@ -158,4 +159,51 @@ console.log("external opened:", opened);
 console.log("blocked:", warned.length);
 const schemes = warned.length === 2 && opened.length === 2 && opened.every((o) => /^(mailto|https):/.test(o));
 console.log("LINK SCHEMES OK:", schemes);
-if (!roundTrip || !schemes) process.exitCode = 1;
+
+// ---- a git diff opened in the reader: two panels, one per side ----
+function fakeSide(uri, text) {
+  const subs = [];
+  const sent = [];
+  const disposers = [];
+  const doc = { uri, getText: () => text, lineCount: 1, lineAt: () => ({ range: {}, text: "" }) };
+  const view = {
+    cspSource: "x",
+    options: null,
+    html: "",
+    postMessage: async (m) => sent.push(m),
+    asWebviewUri: (u) => ({ toString: () => "https://f.webview.value/" + u.path }),
+    onDidReceiveMessage: (cb) => { subs.push(cb); return { dispose() {} }; },
+  };
+  const p = {
+    webview: view, visible: true, active: false, viewColumn: 1, reveal() {},
+    onDidChangeViewState: () => ({ dispose() {} }),
+    onDidDispose: (cb) => { disposers.push(cb); return { dispose() {} }; },
+  };
+  return { doc, panel: p, sent, send: (m) => subs.forEach((cb) => cb(m)), dispose: () => disposers.forEach((cb) => cb()) };
+}
+const filePath = "C:/fake/notes/a.md";
+const gitSide = fakeSide(new FakeUri(filePath, "git", JSON.stringify({ path: filePath, ref: "~" })), "# A\n\nold words\n");
+const fileSide = fakeSide(new FakeUri(filePath), "# A\n\nnew words\n");
+await providerInstance.resolveCustomTextEditor(gitSide.doc, gitSide.panel, undefined);
+await providerInstance.resolveCustomTextEditor(fileSide.doc, fileSide.panel, undefined);
+gitSide.send({ type: "ready" });
+fileSide.send({ type: "ready" });
+await new Promise((r) => setTimeout(r, 60));
+const lastOf = (side) => side.sent.filter((m) => m.type === "update").pop();
+const before = lastOf(gitSide);
+const after = lastOf(fileSide);
+console.log("diff sides:", before?.diff?.label, "|", after?.diff?.label);
+const paired =
+  before?.diff?.side === "original" && before.diff.other === "# A\n\nnew words\n" && before.settings.readOnly === true &&
+  after?.diff?.side === "modified" && after.diff.other === "# A\n\nold words\n" && after.settings.readOnly === false &&
+  before.settings.docBase.endsWith("C:/fake/notes"); // images resolve next to the real file
+
+fileSide.send({ type: "diffScroll", id: "3", frac: 0.25 });
+const relayed = gitSide.sent.find((m) => m.type === "diffScroll");
+const scrollOk = relayed?.id === "3" && relayed.frac === 0.25;
+
+gitSide.dispose(); // closing the diff: the other side becomes a normal reader
+await new Promise((r) => setTimeout(r, 60));
+const unpaired = lastOf(fileSide)?.diff === undefined;
+console.log("DIFF PAIRING OK:", paired, "scroll relay:", scrollOk, "unpaired:", unpaired);
+if (!roundTrip || !schemes || !paired || !scrollOk || !unpaired) process.exitCode = 1;

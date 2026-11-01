@@ -2,7 +2,8 @@ import { Marked, type Token, type Tokens } from "marked";
 import { markedHighlight } from "marked-highlight";
 import hljs from "highlight.js/lib/common";
 import type { ReaderPrefs } from "../settings";
-import { renderFrontMatter, splitFrontMatter } from "./frontmatter";
+import { diffBlocks, type BlockOp } from "./diff";
+import { renderFrontMatter, splitFrontMatter, type FrontMatter } from "./frontmatter";
 import { emojiExtension } from "./emoji";
 import { MATH_CLOSE, MATH_OPEN, mathExtension, renderTex } from "./math";
 import { slugify, escapeHtml, htmlToText } from "./util";
@@ -14,12 +15,29 @@ export interface ReaderSettings extends ReaderPrefs {
   rootBase?: string; // webview base uri of the workspace folder, for `/path` resources
   wiki: Record<string, string | null>; // resolved [[links]]
   embeds: Record<string, string | null>; // resolved ![[embeds]]
+  readOnly?: boolean; // tasks can't be ticked (an old version shown in a diff)
+}
+
+/** Render this side of a diff, marking blocks that differ from `other`. */
+export interface DiffInput {
+  side: "original" | "modified";
+  /** The full Markdown of the other side. */
+  other: string;
+}
+
+export interface DiffSummary {
+  added: number;
+  removed: number;
+  changed: number;
+  /** Other side's Markdown of each changed block, by its `data-diff-id`, for word diffs. */
+  pairs: Record<string, string>;
 }
 
 export interface RenderResult {
   html: string;
   taskLines: number[];
   words: number;
+  diff?: DiffSummary;
 }
 
 export interface WikiMaps {
@@ -170,7 +188,7 @@ marked.use({
       const line = ctx ? ctx.taskLines[ctx.taskIndex++] ?? -1 : -1;
       // Interactive unless we could not map it to a source line. (Chromium
       // never dispatches clicks to disabled inputs.)
-      const state = line >= 0 ? ' aria-label="Toggle task"' : ' disabled=""';
+      const state = line >= 0 && !ctx?.settings.readOnly ? ' aria-label="Toggle task"' : ' disabled=""';
       return `<input class="task-cb" data-task-line="${line}" type="checkbox"${checked ? ' checked=""' : ""}${state}>`;
     },
 
@@ -290,6 +308,9 @@ marked.use({
       if (ctx && !ctx.annotated) {
         ctx.annotated = true;
         annotateTaskLines(tokens, ctx.text, 0, ctx.taskLines);
+        if (ctx.diff) {
+          return markDiff(tokens, ctx.diff, ctx.diffSummary!);
+        }
       }
       return tokens;
     },
@@ -332,6 +353,96 @@ function annotateTaskLines(tokens: Token[], src: string, baseLine: number, out: 
       cursor = at + raw.length;
     }
   }
+}
+
+/**
+ * Wrap this side's blocks that differ from the other side in diff markers, and
+ * mark where the other side has blocks this one doesn't. Both sides run the
+ * same diff (original to modified), so an op's index is an id they share: the
+ * webview lines the two sides up by it while scrolling.
+ */
+function markDiff(tokens: Token[], diff: DiffInput, summary: DiffSummary): Token[] {
+  let otherTokens: Token[] = [];
+  try {
+    const other = splitFrontMatter(diff.other.replace(/\r\n?/g, "\n")).body;
+    otherTokens = marked.Lexer.lex(other, marked.defaults);
+  } catch {
+    /* diff against an empty document */
+  }
+  const mine = blockIndexes(tokens);
+  const theirs = blockIndexes(otherTokens);
+  const keys = (list: Token[], idx: number[]) => idx.map((i) => normalizeBlock(list[i].raw));
+  const isOriginal = diff.side === "original";
+  const ops = isOriginal
+    ? diffBlocks(keys(tokens, mine), keys(otherTokens, theirs))
+    : diffBlocks(keys(otherTokens, theirs), keys(tokens, mine));
+  const own = (op: BlockOp): number | undefined =>
+    isOriginal ? (op.type === "added" ? undefined : op.a) : op.type === "removed" ? undefined : op.b;
+  const marker = (text: string) => ({ type: "html", block: true, pre: false, raw: "", text }) as Token;
+
+  const out: Token[] = [];
+  let cursor = 0;
+  const copyBlock = (block: number) => {
+    const end = mine[block];
+    while (cursor <= end) {
+      out.push(tokens[cursor++]);
+    }
+  };
+
+  for (let k = 0; k < ops.length; ) {
+    const op = ops[k];
+    if (op.type === "same") {
+      out.push(marker(`<div class="diff-anchor" data-sync="${k}"></div>`));
+      copyBlock(own(op)!);
+      k++;
+    } else if (op.type === "changed") {
+      summary.changed++;
+      summary.pairs[k] = otherTokens[theirs[isOriginal ? op.b : op.a]]?.raw ?? "";
+      out.push(marker(`<div class="diff diff-changed" data-sync="${k}" data-diff-id="${k}">`));
+      copyBlock(own(op)!);
+      out.push(marker(`</div>`));
+      k++;
+    } else {
+      // A run of removed (or added) blocks: shown on its own side, a gap on the other.
+      let end = k;
+      while (end < ops.length && ops[end].type === op.type) {
+        end++;
+      }
+      const count = end - k;
+      summary[op.type] += count;
+      if (own(op) !== undefined) {
+        out.push(marker(`<div class="diff diff-${op.type}" data-sync="${k}">`));
+        for (let r = k; r < end; r++) {
+          copyBlock(own(ops[r])!);
+        }
+        out.push(marker(`</div>`));
+      } else {
+        const what = `${count} ${count === 1 ? "block" : "blocks"} ${op.type}`;
+        out.push(marker(`<div class="diff-gap diff-gap-${op.type}" data-sync="${k}" role="note">${what}</div>`));
+      }
+      k = end;
+    }
+  }
+  while (cursor < tokens.length) {
+    out.push(tokens[cursor++]);
+  }
+  return out;
+}
+
+/** Positions of the real blocks in a token list (blank lines are tokens too). */
+function blockIndexes(tokens: Token[]): number[] {
+  const out: number[] = [];
+  tokens.forEach((t, i) => {
+    if (t.type !== "space") {
+      out.push(i);
+    }
+  });
+  return out;
+}
+
+/** Trailing spaces and blank lines don't make a block different. */
+function normalizeBlock(raw: string): string {
+  return raw.replace(/[ \t]+$/gm, "").replace(/\n+$/, "");
 }
 
 function countNewlines(text: string, from: number, to: number): number {
@@ -457,15 +568,18 @@ interface RenderContext {
   taskIndex: number;
   annotated: boolean;
   usedIds: Set<string>;
+  diff?: DiffInput;
+  diffSummary?: DiffSummary;
 }
 
 /** State for the render in progress; marked's renderers are synchronous. */
 let ctx: RenderContext | null = null;
 
-export function renderMarkdown(source: string, settings: ReaderSettings): RenderResult {
+export function renderMarkdown(source: string, settings: ReaderSettings, diff?: DiffInput): RenderResult {
   // TextDocument line numbers count CRLF as a single break.
   const { body: text, frontMatter } = splitFrontMatter(source.replace(/\r\n?/g, "\n"));
-  ctx = { settings, text, taskLines: [], taskIndex: 0, annotated: false, usedIds: new Set() };
+  const diffSummary: DiffSummary | undefined = diff ? { added: 0, removed: 0, changed: 0, pairs: {} } : undefined;
+  ctx = { settings, text, taskLines: [], taskIndex: 0, annotated: false, usedIds: new Set(), diff, diffSummary };
   const taskLines = ctx.taskLines;
   let html: string;
   try {
@@ -477,8 +591,22 @@ export function renderMarkdown(source: string, settings: ReaderSettings): Render
   }
 
   const words = countWords(html);
-  if (frontMatter) {
-    html = renderFrontMatter(frontMatter) + html;
+  let fmHtml = frontMatter ? renderFrontMatter(frontMatter) : "";
+  if (diff && diffSummary) {
+    let otherFm: FrontMatter | null = null;
+    try {
+      otherFm = splitFrontMatter(diff.other.replace(/\r\n?/g, "\n")).frontMatter;
+    } catch {
+      /* treat as none */
+    }
+    if (JSON.stringify(frontMatter) !== JSON.stringify(otherFm)) {
+      const status = !otherFm ? (diff.side === "original" ? "removed" : "added") : !frontMatter ? null : "changed";
+      if (status) {
+        fmHtml = `<div class="diff diff-${status}">${fmHtml}</div>`;
+      } else {
+        fmHtml = `<div class="diff-gap diff-gap-${diff.side === "original" ? "added" : "removed"}" role="note">properties ${diff.side === "original" ? "added" : "removed"}</div>`;
+      }
+    }
   }
-  return { html, taskLines, words };
+  return { html: fmHtml + html, taskLines, words, diff: diffSummary };
 }

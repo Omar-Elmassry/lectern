@@ -149,6 +149,27 @@ to every file.
   <img src="images/screenshots/settings.png" alt="The reading settings panel in the Sepia palette">
 </p>
 
+### See what changed
+
+Read your changes the way they'll look, not as lines of Markdown. In a diff of a
+Markdown file (for example after clicking a changed file in **Source Control**), press
+**`Ctrl+Alt+R`** or click the **book icon**. Lectern shows the old and new versions side
+by side:
+
+- **Added** blocks are green and **removed** blocks are red, with a dashed line on the
+  other side where they were.
+- In **changed** blocks, the words that changed are highlighted.
+- Both sides **scroll together**. The bar at the top counts the changes, jumps to the
+  previous or next one (**`Alt+↑`** / **`Alt+↓`**), and **Text diff** goes back to the
+  normal diff. `Ctrl+Alt+R` does that too.
+
+<p align="center">
+  <img src="images/screenshots/diff.png" alt="A Markdown diff in Lectern: the old version on the left with a removed paragraph in red and removed words struck through, the new version on the right with added words and an added paragraph in green">
+</p>
+
+To open every Markdown diff this way, run **Lectern: Toggle Opening Markdown Changes in
+Reading View** from the Command Palette. Run it again to go back to text diffs.
+
 ### And the little things
 
 - **Emoji shortcodes** like `:rocket:` 🚀, `:tada:` 🎉 and `:white_check_mark:` ✅ work as
@@ -179,8 +200,9 @@ settings, so you can also set them per workspace:
 
 | Command | Shortcut |
 | --- | --- |
-| Lectern: Open in Reading View | `Ctrl+Alt+R` / `Cmd+Alt+R` in a Markdown editor |
-| Lectern: Open Markdown Source | `Ctrl+Alt+R` / `Cmd+Alt+R` in the reading view |
+| Lectern: Open in Reading View | `Ctrl+Alt+R` / `Cmd+Alt+R` in a Markdown editor or diff |
+| Lectern: Open Markdown Source | `Ctrl+Alt+R` / `Cmd+Alt+R` in the reading view (in a diff: back to the text diff) |
+| Lectern: Toggle Opening Markdown Changes in Reading View | — |
 | Lectern: Open Settings | — |
 
 ## Contributing

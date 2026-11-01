@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { PAIR_WINDOW_MS, age, diskKey, diskUri, isGitUri, reopenActiveWith, sideLabel } from "./diffPairing";
 import { ReaderSettings, WikiMaps } from "./markdown/render";
 import { WikiResolver } from "./markdown/wiki";
 import { getNonce } from "./nonce";
@@ -11,6 +12,16 @@ import {
   type ReaderPrefs,
 } from "./settings";
 
+/** One open reader panel. In a diff, `partner` is the reader showing the other side. */
+interface ReaderEntry {
+  document: vscode.TextDocument;
+  panel: vscode.WebviewPanel;
+  opened: number;
+  update: () => Promise<void>;
+  partner?: ReaderEntry;
+  side?: "original" | "modified";
+}
+
 export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = "lectern.reader";
 
@@ -18,6 +29,8 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly panels = new Map<string, vscode.WebviewPanel>();
   /** `note.md#heading` targets waiting for their new panel's first render. */
   private readonly pendingAnchors = new Map<string, string>();
+  private readonly entries = new Set<ReaderEntry>();
+  private diffContext = false;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -29,7 +42,8 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel: vscode.WebviewPanel,
     _token: vscode.CancellationToken
   ): void {
-    const docDir = vscode.Uri.joinPath(document.uri, "..");
+    // A `git:` version's images and links live next to the file on disk.
+    const docDir = vscode.Uri.joinPath(diskUri(document.uri), "..");
     const roots = new Set<string>([this.extensionUri.toString(), docDir.toString()]);
     for (const f of vscode.workspace.workspaceFolders ?? []) {
       roots.add(f.uri.toString());
@@ -43,7 +57,11 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
 
     // The first render is triggered by the webview's "ready" message, which
     // guarantees its message listener exists.
-    const update = this.makeUpdater(document, webviewPanel);
+    const entry: ReaderEntry = { document, panel: webviewPanel, opened: Date.now(), update: async () => {} };
+    const update = this.makeUpdater(entry);
+    entry.update = update;
+    this.entries.add(entry);
+    this.pairDiffSides(entry);
 
     // Coalesce keystrokes: re-rendering a long note on every character
     // makes typing in a side-by-side source editor lag.
@@ -55,7 +73,10 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
 
     const subs: vscode.Disposable[] = [
       vscode.workspace.onDidChangeTextDocument((e) => {
-        if (e.document.uri.toString() === document.uri.toString() && e.contentChanges.length > 0) {
+        const uri = e.document.uri.toString();
+        // In a diff, an edit to either side changes what this side highlights.
+        const ours = uri === document.uri.toString() || uri === entry.partner?.document.uri.toString();
+        if (ours && e.contentChanges.length > 0) {
           updateSoon();
         }
       }),
@@ -66,15 +87,24 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
       }),
       // "Editor" mode follows the theme's light/dark kind.
       vscode.window.onDidChangeActiveColorTheme(() => void update()),
+      webviewPanel.onDidChangeViewState(() => this.updateDiffContext()),
     ];
     const key = document.uri.toString();
     this.panels.set(key, webviewPanel);
     webviewPanel.onDidDispose(() => {
       clearTimeout(timer);
       subs.forEach((d) => d.dispose());
+      this.entries.delete(entry);
+      const partner = entry.partner;
+      if (partner) {
+        partner.partner = undefined;
+        partner.side = undefined;
+        void partner.update();
+      }
       if (this.panels.get(key) === webviewPanel) {
         this.panels.delete(key);
       }
+      this.updateDiffContext();
     });
 
     webviewPanel.webview.onDidReceiveMessage((msg) => {
@@ -100,6 +130,18 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
         case "openLink":
           void this.openLink(document, String(msg.href ?? ""));
           break;
+        case "diffScroll":
+          if (entry.partner?.panel.visible) {
+            void entry.partner.panel.webview.postMessage({
+              type: "diffScroll",
+              id: String(msg.id ?? ""),
+              frac: Number(msg.frac) || 0,
+            });
+          }
+          break;
+        case "openTextDiff":
+          void reopenActiveWith("default");
+          break;
         case "setSetting":
           this.setReaderSetting(String(msg.key ?? ""), msg.value)
             .then(() => void update())
@@ -122,6 +164,61 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
           break;
       }
     });
+  }
+
+  /** True when the focused reader is one side of a diff. */
+  isDiffActive(): boolean {
+    return [...this.entries].some((e) => e.partner && e.panel.active);
+  }
+
+  /**
+   * VS Code leaves `activeCustomEditorId` empty when custom editors sit inside a
+   * diff, so the reading-view diff's keybinding and title button use this key.
+   */
+  private updateDiffContext(): void {
+    const active = this.isDiffActive();
+    if (active !== this.diffContext) {
+      this.diffContext = active;
+      void vscode.commands.executeCommand("setContext", "lectern.inDiff", active);
+    }
+  }
+
+  /** If `entry` and another reader are the two sides of one diff, link them. */
+  private pairDiffSides(entry: ReaderEntry): void {
+    const key = diskKey(entry.document.uri);
+    if (!key) {
+      return;
+    }
+    let match: ReaderEntry | undefined;
+    for (const other of this.entries) {
+      if (
+        other !== entry &&
+        !other.partner &&
+        other.document.uri.toString() !== entry.document.uri.toString() &&
+        (isGitUri(other.document.uri) || isGitUri(entry.document.uri)) &&
+        diskKey(other.document.uri) === key &&
+        other.panel.viewColumn === entry.panel.viewColumn &&
+        Math.abs(other.opened - entry.opened) <= PAIR_WINDOW_MS &&
+        (!match || other.opened > match.opened)
+      ) {
+        match = other;
+      }
+    }
+    if (!match) {
+      return;
+    }
+    // Ties (two commits) keep the order VS Code opened them in: left side first.
+    const a = age(entry.document.uri);
+    const b = age(match.document.uri);
+    const entryFirst = a < b || (a === b && entry.opened < match.opened);
+    const [original, modified] = entryFirst ? [entry, match] : [match, entry];
+    original.partner = modified;
+    original.side = "original";
+    modified.partner = original;
+    modified.side = "modified";
+    void original.update();
+    void modified.update();
+    this.updateDiffContext();
   }
 
   private getHtml(webview: vscode.Webview): string {
@@ -168,21 +265,26 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
     }
   }
 
-  private makeUpdater(
-    document: vscode.TextDocument,
-    webviewPanel: vscode.WebviewPanel
-  ): () => Promise<void> {
+  private makeUpdater(entry: ReaderEntry): () => Promise<void> {
+    const { document, panel } = entry;
     let inFlight = 0;
     return async () => {
       const ticket = ++inFlight;
-      const settings = await this.collectSettings(document, webviewPanel);
+      const settings = await this.collectSettings(document, panel);
       if (ticket !== inFlight) {
         return; // a newer update is pending
       }
-      void webviewPanel.webview.postMessage({
+      const { partner, side } = entry;
+      // The old side of a diff is a past version: ticking its tasks can't work.
+      settings.readOnly = side === "original" || isGitUri(document.uri);
+      void panel.webview.postMessage({
         type: "update",
         content: document.getText(),
         settings,
+        diff:
+          partner && side
+            ? { side, other: partner.document.getText(), label: sideLabel(document.uri, side) }
+            : undefined,
       });
     };
   }
@@ -192,9 +294,10 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel: vscode.WebviewPanel
   ): Promise<ReaderSettings> {
     const cfg = vscode.workspace.getConfiguration("lectern");
-    const docDir = vscode.Uri.joinPath(document.uri, "..");
+    const onDisk = diskUri(document.uri);
+    const docDir = vscode.Uri.joinPath(onDisk, "..");
     const docBase = webviewPanel.webview.asWebviewUri(docDir).toString();
-    const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const folder = vscode.workspace.getWorkspaceFolder(onDisk);
     const rootBase = folder ? webviewPanel.webview.asWebviewUri(folder.uri).toString() : undefined;
     const text = document.getText();
 
@@ -204,7 +307,7 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
 
     let wiki: WikiMaps = { links: {}, embeds: {} };
     try {
-      wiki = await this.wiki.resolveAll(document.uri, linkTargets, embedTargets);
+      wiki = await this.wiki.resolveAll(onDisk, linkTargets, embedTargets);
     } catch {
       /* keep empty maps */
     }
@@ -269,14 +372,15 @@ export class ReaderEditorProvider implements vscode.CustomTextEditorProvider {
       target = vscode.Uri.parse(pathPart, true);
     } else {
       const decoded = safeDecode(pathPart).replace(/\\/g, "/");
-      const root = vscode.workspace.getWorkspaceFolder(document.uri)?.uri;
+      const docUri = diskUri(document.uri);
+      const root = vscode.workspace.getWorkspaceFolder(docUri)?.uri;
       if (/^[A-Za-z]:\//.test(decoded)) {
         target = vscode.Uri.file(decoded);
       } else if (decoded.startsWith("/") && root) {
         // Workspace-root relative (Obsidian / GitHub style).
         target = vscode.Uri.joinPath(root, decoded);
       } else {
-        target = vscode.Uri.joinPath(document.uri, "..", decoded);
+        target = vscode.Uri.joinPath(docUri, "..", decoded);
       }
     }
     await this.openTarget(target, fragment);

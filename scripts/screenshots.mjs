@@ -5,7 +5,7 @@
 // backdrop and saves PNGs. If ffmpeg is on PATH it also records demo.gif, a scripted
 // walkthrough with a visible cursor. Set CHROME / FFMPEG if they are not found.
 import { spawn, spawnSync } from "child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
 
@@ -35,7 +35,7 @@ const CURSOR = `<svg id="cursor" width="28" height="28" viewBox="0 0 24 24"><pat
   d="M3 2 L3 19.5 L7.8 15 L11.2 22.2 L14.4 20.8 L11 13.6 L17.6 13.6 Z" fill="#141414"
   stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><div id="ring"></div>`;
 
-function windowPage({ width, height, src, light, cursor }) {
+function windowPage({ width, height, src, light, cursor, title = "README.md" }) {
   const winW = width - Math.round(width * 0.1);
   const winH = height - Math.round(height * 0.12);
   const bar = light ? "#E7E5E2" : "#2A2A2A";
@@ -62,7 +62,7 @@ function windowPage({ width, height, src, light, cursor }) {
   </style></head><body>
   <div class="win"><div class="bar"><span class="dots"><i style="background:#FF5F57"></i><i
     style="background:#FEBC2E"></i><i style="background:#28C840"></i></span>
-    <span class="tab"><img src="/images/icon.png" alt="">README.md</span></div>
+    <span class="tab"><img src="/images/icon.png" alt="">${title}</span></div>
     <iframe src="${src}"></iframe></div>${CURSOR}</body></html>`;
 }
 
@@ -285,6 +285,44 @@ async function shootStills() {
   }
 }
 
+/* ---------------- diff ---------------- */
+
+// An older version of the sample, so the diff still shows each kind of change.
+const DIFF_EDITS = [
+  ["status: draft", "status: idea"],
+  ["Press it again to go back to the source.", "Press the same keys again to return to the plain source."],
+  ["#### And a level 4 nested deep\n", "#### And a level 4 nested deep\n\nThis paragraph was in the old version and has since been removed.\n"],
+  ["A single line break inside a paragraph is joined into one line, as in GitHub.", "A single line break inside a paragraph is kept as a space."],
+  ["Emoji shortcodes work like on GitHub: :rocket: :tada: :white_check_mark: :bulb: :+1:\n\n", ""],
+];
+
+async function shootDiff() {
+  let old = readFileSync("sample/README.md", "utf8");
+  for (const [now, before] of DIFF_EDITS) {
+    if (!old.includes(now)) throw new Error(`sample/README.md no longer contains: ${now}`);
+    old = old.replace(now, before);
+  }
+  mkdirSync("out/screens", { recursive: true });
+  writeFileSync("out/screens/old.md", old);
+
+  const width = 1600;
+  const height = 1240;
+  await setSize(width, height);
+  const src = `${base}diff?old=out/screens/old.md&new=sample/README.md&mode=dark&theme=2&size=16`;
+  await showPage(windowPage({ width, height, src, title: "README.md (Working Tree)" }));
+  await evaluate(`(async () => {
+    const sides = () => [...document.querySelector("iframe").contentDocument.querySelectorAll("iframe")];
+    for (let i = 0; i < 100; i++) {
+      if (sides().length === 2 && sides().every((f) => f.contentDocument?.getElementById("diff-bar"))) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    for (const f of sides()) await f.contentDocument.fonts.ready;
+    await new Promise((r) => setTimeout(r, 600));
+  })()`);
+  await capture(path.join(OUT, "diff.png"));
+  console.log(`${OUT}/diff.png`);
+}
+
 /* ---------------- demo gif ---------------- */
 
 async function recordDemo() {
@@ -415,8 +453,12 @@ try {
   await send("Page.enable");
   mkdirSync(OUT, { recursive: true });
 
-  if (!process.argv.includes("--gif-only")) await shootStills();
-  if (process.argv.includes("--stills-only")) {
+  const only = (flag) => process.argv.includes(flag);
+  if (!only("--gif-only")) {
+    if (!only("--diff-only")) await shootStills();
+    await shootDiff();
+  }
+  if (only("--stills-only") || only("--diff-only")) {
     // skip the GIF
   } else if (ffmpeg) await recordDemo();
   else console.log("ffmpeg not found: skipped demo.gif (set FFMPEG to enable)");

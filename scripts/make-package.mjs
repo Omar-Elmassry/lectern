@@ -46,6 +46,11 @@ const pkg = {
         category: "Lectern",
         icon: "$(go-to-file)",
       },
+      {
+        command: "lectern.toggleDiffDefault",
+        title: "Toggle Opening Markdown Changes in Reading View",
+        category: "Lectern",
+      },
       { command: "lectern.openSettings", title: "Open Settings", category: "Lectern" },
     ],
     menus: {
@@ -53,12 +58,12 @@ const pkg = {
         {
           command: "lectern.open",
           group: "navigation",
-          when: "(editorLangId == markdown || resourceExtname == .mdx) && !activeCustomEditorId",
+          when: "(editorLangId == markdown || resourceExtname == .mdx) && !activeCustomEditorId && !lectern.inDiff",
         },
         {
           command: "lectern.openSource",
           group: "navigation",
-          when: "activeCustomEditorId == 'lectern.reader'",
+          when: "activeCustomEditorId == 'lectern.reader' || lectern.inDiff",
         },
       ],
       "explorer/context": [
@@ -74,13 +79,13 @@ const pkg = {
         command: "lectern.open",
         key: "ctrl+alt+r",
         mac: "cmd+alt+r",
-        when: "(editorLangId == markdown || resourceExtname == .mdx) && !activeCustomEditorId",
+        when: "(editorLangId == markdown || resourceExtname == .mdx) && !activeCustomEditorId && !lectern.inDiff",
       },
       {
         command: "lectern.openSource",
         key: "ctrl+alt+r",
         mac: "cmd+alt+r",
-        when: "activeCustomEditorId == 'lectern.reader'",
+        when: "activeCustomEditorId == 'lectern.reader' || lectern.inDiff",
       },
     ],
     configuration: {
