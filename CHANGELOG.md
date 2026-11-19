@@ -6,6 +6,14 @@ All notable changes to Lectern are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-19
+
+### Changed
+
+- The README shows right-to-left text: an Arabic note with the outline pinned, Arabic
+  beside English, a diff of an Arabic note and a short Arabic example. The demo GIF now
+  ends on an Arabic section.
+
 ## [1.2.0] - 2026-11-19
 
 ### Added
@@ -109,7 +117,8 @@ The first release of Lectern: a calm, distraction-free reading view for Markdown
 - Scripts in Markdown never run, links can't trigger VS Code commands, and formulas and
   diagrams can't add links or scripts.
 
-[Unreleased]: https://github.com/Omar-Elmassry/lectern/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Omar-Elmassry/lectern/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/Omar-Elmassry/lectern/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Omar-Elmassry/lectern/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Omar-Elmassry/lectern/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/Omar-Elmassry/lectern/compare/v1.0.0...v1.0.1
