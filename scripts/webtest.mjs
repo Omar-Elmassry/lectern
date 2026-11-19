@@ -184,3 +184,60 @@ const mapOk =
   !document.getElementById("diagram-viewer");
 console.log("PIN AND MIND MAP OK:", mapOk);
 if (!mapOk) process.exitCode = 1;
+
+// --- right-to-left text ---
+sendDoc(
+  [
+    "# مقدمة",
+    "",
+    "React مكتبة لبناء واجهات المستخدم، و `npm install` يثبتها.",
+    "",
+    "English paragraph inside an Arabic note.",
+    "",
+    "- البند الأول",
+    "- Second item",
+    "- البند الثالث في القائمة",
+    "",
+    "> [!note]",
+    "> ملاحظة مهمة هنا.",
+    "",
+    "| الاسم | العمر |",
+    "| --- | --- |",
+    "| علي | 30 |",
+    "",
+    "```js",
+    "const greeting = 'مرحبا';",
+    "```",
+    "",
+    "42",
+  ].join("\n"),
+  mapSettings
+);
+const reading = document.querySelector("#root .reading");
+const dirOf = (sel) => reading.querySelector(sel)?.getAttribute("dir");
+const paras = reading.querySelectorAll(":scope > p");
+const rtl = {
+  page: reading.getAttribute("dir"),
+  heading: dirOf("h1"),
+  arabicPara: paras[0]?.getAttribute("dir"),
+  inlineCode: dirOf("p code"),
+  englishPara: paras[1]?.getAttribute("dir"),
+  list: dirOf("ul"),
+  listItem: reading.querySelector("li")?.getAttribute("dir") ?? null,
+  callout: dirOf("blockquote.callout"),
+  table: dirOf("table"),
+  codeBlock: dirOf(".code-block"),
+  pre: dirOf("pre"),
+  numberOnly: paras[2]?.getAttribute("dir") ?? null,
+  tocRow: document.querySelector("a.toc-row")?.getAttribute("dir"),
+};
+console.log("rtl:", rtl);
+const rtlOk =
+  rtl.page === "rtl" && rtl.heading === "rtl" && rtl.arabicPara === "rtl" && rtl.inlineCode === "ltr" &&
+  rtl.englishPara === "ltr" && rtl.list === "rtl" && rtl.listItem === null && rtl.callout === "rtl" &&
+  rtl.table === "rtl" && rtl.codeBlock === "ltr" && rtl.pre === "ltr" && rtl.numberOnly === null &&
+  rtl.tocRow === "rtl";
+sendDoc("# Title\n\nPlain English.\n", mapSettings);
+const ltrPage = document.querySelector("#root .reading").getAttribute("dir") === "ltr";
+console.log("RTL TEXT OK:", rtlOk && ltrPage);
+if (!(rtlOk && ltrPage)) process.exitCode = 1;

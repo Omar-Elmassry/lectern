@@ -27,7 +27,7 @@ keeps them strictly separated:
 - Webview side: `src/webview/main.ts`, `src/webview/diffview.ts` + `src/webview/style.css`, and
   `src/webview/mermaid.ts` (a separate on-demand bundle). No Node/vscode APIs, only
   `acquireVsCodeApi()` and DOM. Bundled as browser IIFEs.
-- Shared pure code: `src/markdown/render.ts`, `diff.ts`, `math.ts`, `emoji.ts`, `frontmatter.ts`,
+- Shared pure code: `src/markdown/render.ts`, `diff.ts`, `direction.ts`, `math.ts`, `emoji.ts`, `frontmatter.ts`,
   `util.ts` and `src/settings.ts`. None of them import `vscode`, so `npm test` runs them
   in plain Node.
 
@@ -48,6 +48,8 @@ keeps them strictly separated:
 | `src/markdown/util.ts` | `slugify`, `htmlToText`, `escapeHtml`. |
 | `src/markdown/wiki.ts` | `WikiResolver` — resolves `[[link]]` / `![[embed]]` targets; cached, cleared on file create/delete/rename. |
 | `src/nonce.ts` | CSP nonce (crypto). |
+| `src/markdown/direction.ts` | `textDirection()`: "rtl" or "ltr" from which kind of letters most of a text has (null with no letters). Pure. |
+| `src/webview/direction.ts` | `applyDirection()`: sets `dir` on the page and on each heading, paragraph, list, quote, callout and table after a render; code, math and diagrams get `dir="ltr"`. |
 | `src/webview/main.ts` | Shell, panels, settings UI, TOC, image lightbox, Mermaid loading/theming and the full-screen diagram viewer, render loop, message plumbing, host-stylesheet stripping. |
 | `src/webview/diffview.ts` | Diff UI: word highlights inside changed blocks, the diff bar (counts, previous/next, Text diff) and scroll sync. |
 | `src/webview/mindmapview.ts` | Draws the mind map as an SVG (branch colours, fold buttons) for the full-screen viewer in `main.ts`. |

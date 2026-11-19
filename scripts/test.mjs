@@ -12,6 +12,7 @@ await esbuild.build({
     emoji: "src/markdown/emoji.ts",
     diff: "src/markdown/diff.ts",
     mindmap: "src/markdown/mindmap.ts",
+    direction: "src/markdown/direction.ts",
   },
   external: ["vscode"],
   bundle: true,

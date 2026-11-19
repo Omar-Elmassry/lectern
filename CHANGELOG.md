@@ -6,6 +6,23 @@ All notable changes to Lectern are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Right-to-left text.** Notes in Arabic and other languages written in the Arabic
+  script (Persian, Urdu, Pashto, Kurdish, Sindhi, Punjabi and more) read right to left.
+  Each heading, paragraph, list, quote, callout and table takes the direction most of
+  its letters are written in, so notes that mix Arabic and English work with no setting.
+  Bullets, task boxes, quote bars, callout bars and outline indents move to the right
+  side with the text. Code blocks, inline code, math and diagrams always stay left to
+  right. Mind map labels in Arabic keep their word order.
+- Arabic fonts in the default font list for macOS (Geeza Pro) and Linux (Noto Sans Arabic).
+- `sample/notes/Arabic.md`, a mixed Arabic and English note for trying this out.
+
+### Fixed
+
+- Word highlights in diffs no longer split Arabic words that have short vowel marks
+  (harakat), or Persian words with a zero-width non-joiner.
+
 ## [1.1.0] - 2026-11-02
 
 ### Added

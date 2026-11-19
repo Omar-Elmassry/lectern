@@ -163,7 +163,7 @@ function similar(x: string, y: string): boolean {
 }
 
 function words(s: string): string[] {
-  return s.toLowerCase().match(/[\p{L}\p{N}_]+/gu) ?? [];
+  return s.toLowerCase().match(/[\p{L}\p{M}\p{N}_\u200C\u200D]+/gu) ?? [];
 }
 
 /* ---------------- words ---------------- */
@@ -177,7 +177,9 @@ export interface WordDiff {
   ratio: number;
 }
 
-const WORD_RE = /\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu;
+// Marks (Arabic harakat, accents) and the zero-width joiners Persian
+// uses belong to the word they are in.
+const WORD_RE = /\s+|[\p{L}\p{M}\p{N}_\u200C\u200D]+|[^\s\p{L}\p{M}\p{N}_\u200C\u200D]/gu;
 const MAX_WORD_CELLS = 1_000_000;
 
 /** Word-level diff of two plain texts, or null when they are too long. */

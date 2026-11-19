@@ -1,6 +1,7 @@
 import type { ReaderSettings, RenderResult } from "../markdown/render";
 import { renderMarkdown } from "../markdown/render";
 import { slugify } from "../markdown/util";
+import { applyDirection } from "./direction";
 import { followScroll, highlightWords, initDiffSync, revealFirstChange, updateDiffBar, type DiffInfo } from "./diffview";
 import { drawMindMap, mindTree } from "./mindmapview";
 import { PREF_BOUNDS, PREF_DEFAULTS, sanitizePref, type PrefKey } from "../settings";
@@ -447,6 +448,9 @@ function render(content: string, s: ReaderSettings, diff?: DiffInfo): void {
     }
   });
 
+  // After the code blocks are wrapped, so their wrappers stay left to right too.
+  applyDirection(reading);
+
   // Stats chip
   const mins = Math.max(1, Math.round(result.words / 220));
   const chip = document.getElementById("stats-chip");
@@ -470,6 +474,7 @@ function buildToc(): void {
     row.className = `toc-row toc-${h.tagName.toLowerCase()}`;
     row.href = `#${h.id}`;
     row.textContent = h.textContent ?? "";
+    row.dir = (h as HTMLElement).dir;
     row.dataset.target = h.id;
     list.appendChild(row);
   }

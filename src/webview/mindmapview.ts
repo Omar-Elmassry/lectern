@@ -1,3 +1,4 @@
+import { textDirection } from "../markdown/direction";
 import { buildTree, label, layout, type HeadingInfo, type MindNode } from "../markdown/mindmap";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -88,6 +89,9 @@ export function drawMindMap(
       "font-weight": FONT_WEIGHT[style(d)],
     });
     text.textContent = label(n.node.text);
+    if (textDirection(n.node.text) === "rtl") {
+      text.setAttribute("direction", "rtl"); // Keeps punctuation and mixed words in order.
+    }
     g.appendChild(text);
     if (label(n.node.text) !== n.node.text.trim()) {
       const title = el("title", {});

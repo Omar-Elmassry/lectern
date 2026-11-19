@@ -184,6 +184,17 @@ one-click **copy button** on each block.
   <img src="images/screenshots/code.png" alt="Highlighted TypeScript and Bash code blocks in the Dark palette">
 </p>
 
+### Arabic and right-to-left text
+
+Notes in **Arabic** and other languages written in the Arabic script (**Persian, Urdu,
+Pashto, Kurdish, Sindhi, Punjabi** and more) read right to left. Lectern looks at the
+letters in each heading, paragraph, list, quote, callout and table and picks the
+direction for it, so a note that mixes Arabic and English paragraphs reads well with no
+setting to change. A sentence that starts with an English name, like
+"React مكتبة لبناء الواجهات", still counts as Arabic, because most of its letters are.
+Bullets, quote bars, callouts and the outline move to the right side with the text.
+Code, math and diagrams always stay left to right.
+
 ### Make it yours
 
 The panel in the bottom-right corner sets the **palette**, **font** (sans, serif or mono),
