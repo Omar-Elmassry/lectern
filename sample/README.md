@@ -223,6 +223,32 @@ Obsidian-style embeds work as well, with an optional width:
 
 ---
 
+## Arabic and right-to-left text
+
+Notes in Arabic and other Arabic-script languages (Persian, Urdu, Pashto, Kurdish,
+Sindhi, Punjabi) read right to left. Each block picks its own direction, so English and
+Arabic can sit in the same note. See [the full Arabic sample](notes/Arabic.md).
+
+### مثال بالعربية
+
+Lectern يعرض ملاحظاتك في صفحة هادئة وخط واضح. اضغط `Ctrl+Alt+R` للتبديل بين النص
+المصدر وعرض القراءة.
+
+- القوائم تبدأ من اليمين.
+- [x] المهام أيضًا، ويمكنك تحديدها بنقرة.
+- [ ] الروابط مثل [[Journal]] تعمل كالمعتاد.
+
+> [!tip] نصيحة
+> الكود والمعادلات مثل $E = mc^2$ والرسوم تبقى دائمًا من اليسار إلى اليمين.
+
+| اللغة | مثال |
+| --- | --- |
+| العربية | مرحبا بالعالم |
+| فارسی | سلام دنیا |
+| اردو | ہیلو دنیا |
+
+---
+
 ## Wiki links
 
 Go to [Journal entry](notes/Journal.md) by relative path, or straight to a heading with

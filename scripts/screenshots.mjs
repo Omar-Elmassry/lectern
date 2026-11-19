@@ -25,6 +25,9 @@ const stills = [
   { name: "settings", query: "mode=sepia&theme=1", at: "lists-and-tasks", open: "settings-toggle", light: true },
   { name: "mindmap", query: "mode=dark&theme=2", open: "toc-toggle", click: "#toc-mindmap", height: 900 },
   { name: "outline-pinned", query: "mode=light&theme=1&pin", at: "math", light: true },
+  // Right to left: an Arabic note with the outline pinned, and Arabic beside English.
+  { name: "rtl", query: "file=sample/notes/Arabic.md&mode=sepia&theme=1&pin", light: true, title: "Arabic.md" },
+  { name: "rtl-mixed", query: "mode=light&theme=1", at: "arabic-and-right-to-left-text", light: true, height: 1080 },
 ];
 
 /* ---------------- page templates ---------------- */
@@ -276,7 +279,7 @@ async function shootStills() {
   for (const shot of stills.filter((s) => !pick || s.name === pick)) {
     const height = shot.height ?? 1000;
     await setSize(width, height);
-    await showPage(windowPage({ width, height, src: `${base}?${shot.query}`, light: shot.light }));
+    await showPage(windowPage({ width, height, src: `${base}?${shot.query}`, light: shot.light, title: shot.title }));
     await evaluate(`(async () => {
       ${DEMO_HELPERS}
       await demo.doc().fonts.ready;
@@ -316,12 +319,21 @@ async function shootStills() {
 
 // sample/diff/before.md and after.md: one short note with each kind of change
 // (changed words, a removed paragraph, an added callout, a ticked task, an added item).
+const diffs = [
+  { name: "diff", old: "before.md", new: "after.md", title: "offsite.md (Working Tree)", height: 1200 },
+  { name: "rtl-diff", old: "arabic-before.md", new: "arabic-after.md", title: "trip.md (Working Tree)", height: 1000 },
+];
+
 async function shootDiff() {
+  for (const d of diffs) await shootOneDiff(d);
+}
+
+async function shootOneDiff(d) {
   const width = 1600;
-  const height = 1200;
+  const height = d.height;
   await setSize(width, height);
-  const src = `${base}diff?old=sample/diff/before.md&new=sample/diff/after.md&mode=dark&theme=2&size=17`;
-  await showPage(windowPage({ width, height, src, title: "offsite.md (Working Tree)" }));
+  const src = `${base}diff?old=sample/diff/${d.old}&new=sample/diff/${d.new}&mode=dark&theme=2&size=17`;
+  await showPage(windowPage({ width, height, src, title: d.title }));
   await evaluate(`(async () => {
     const sides = () => [...document.querySelector("iframe").contentDocument.querySelectorAll("iframe")];
     for (let i = 0; i < 100; i++) {
@@ -331,8 +343,8 @@ async function shootDiff() {
     for (const f of sides()) await f.contentDocument.fonts.ready;
     await new Promise((r) => setTimeout(r, 600));
   })()`);
-  await capture(path.join(OUT, "diff.png"));
-  console.log(`${OUT}/diff.png`);
+  await capture(path.join(OUT, `${d.name}.png`));
+  console.log(`${OUT}/${d.name}.png`);
 }
 
 /* ---------------- demo gif ---------------- */
@@ -470,6 +482,9 @@ async function recordDemo() {
   await pick('#rs-bg .bgs[data-mode="dark"]', 0, 350, 1100);
   await evaluate('demo.key("Escape")');
   await settle(250);
+  // Arabic reads right to left, next to English.
+  await scrollTo("#arabic-and-right-to-left-text", 1300);
+  await hold(2400);
   await scrollTo(null, 700);
   await hold(400);
 
@@ -479,9 +494,8 @@ async function recordDemo() {
 
 /* ---------------- feature video ---------------- */
 
-// A short video of what's new, for posts: reading-view diffs, the pinned outline and
-// the mind map. `node scripts/screenshots.mjs --features` writes an MP4 and a GIF to
-// out/features/.
+// A short video of what's new, for posts: Arabic notes read right to left.
+// `node scripts/screenshots.mjs --features` writes an MP4 and a GIF to out/features/.
 async function recordFeatures() {
   // Small enough that the text is readable on a phone, drawn at 1.5x so it stays sharp.
   const width = 1280;
@@ -490,9 +504,37 @@ async function recordFeatures() {
   const caption = (text) => evaluate(`demo.caption(${J(text)})`);
   await setSize(width, height, 1.5);
 
-  // 1. A diff of a Markdown file, read as two pages.
-  const src = `${base}diff?old=sample/diff/before.md&new=sample/diff/after.md&mode=dark&theme=2&size=17`;
-  await showPage(windowPage({ width, height, src, title: "offsite.md (Working Tree)", cursor: true }));
+  // 1. An Arabic note, with the outline pinned beside it.
+  const arabic = `${base}?file=sample/notes/Arabic.md&mode=sepia&theme=1&size=17&pin`;
+  await showPage(windowPage({ width, height, src: arabic, light: true, title: "Arabic.md", cursor: true }));
+  await evaluate(DEMO_HELPERS + `demo.cursor(${width * 0.62}, ${height * 0.55});`);
+  await caption("New: Arabic notes read right to left");
+  await hold(2600);
+  await moveTo("#root h1", 0, 700);
+  await scrollTo('[id="الأفكار-الأساسية"]', 1300);
+  await hold(1200);
+  // Tick a task: it works the same in Arabic.
+  await scrollTo('[id="المهام"]', 1000);
+  await hold(500);
+  await pick('input[type="checkbox"]', 1, 600, 900);
+  // Open a folded callout.
+  await pick("details > summary.callout-title", 0, 600, 1200);
+
+  // 2. Code, math and diagrams stay left to right.
+  await caption("Code, math and diagrams stay left to right");
+  await scrollTo('[id="مثال"]', 1300);
+  await hold(1800);
+  await scrollTo('[id="مقارنة"]', 1300);
+  await hold(2000);
+
+  // 3. Arabic and English in one note.
+  await caption("Arabic and English in one note: each paragraph picks its direction");
+  await scrollTo("#english-section", 1300);
+  await hold(2400);
+
+  // 4. A diff of an Arabic note.
+  const src = `${base}diff?old=sample/diff/arabic-before.md&new=sample/diff/arabic-after.md&mode=dark&theme=2&size=17`;
+  await showPage(windowPage({ width, height, src, title: "trip.md (Working Tree)", cursor: true }));
   await evaluate(`(async () => {
     const sides = () => [...document.querySelector("iframe").contentDocument.querySelectorAll("iframe")];
     for (let i = 0; i < 100; i++) {
@@ -503,52 +545,27 @@ async function recordFeatures() {
     await new Promise((r) => setTimeout(r, 400));
   })()`);
   await evaluate(DEMO_HELPERS + `demo.side = 1; demo.cursor(${width * 0.72}, ${height * 0.62});`);
-  await caption("New: read your Markdown changes as pages, side by side");
-  await hold(2600);
-  // Step through the changes; the other side keeps up.
-  for (let k = 0; k < 4; k++) {
+  await caption("Diffs of Arabic notes, with the changed words marked");
+  await hold(1600);
+  for (let k = 0; k < 3; k++) {
     await pick("#db-next", 0, k ? 250 : 650, 1000);
   }
-  // A ticked task gets a ring.
   await moveTo(".diff-task", 0, 600);
   await hold(1400);
-  // Scroll the old side: the new side follows.
-  await evaluate("demo.side = 0");
-  await moveTo("#root h1", 0, 700);
-  await scrollTo(null, 900);
-  await hold(1200);
 
-  // 2. The outline, pinned beside the text.
-  await showPage(windowPage({ width, height, src: `${base}?mode=dark&theme=2&size=17`, cursor: true }));
-  await evaluate(DEMO_HELPERS + `demo.cursor(${width * 0.6}, ${height * 0.55});`);
-  await caption("Pin the outline beside the text");
-  await hold(900);
-  await pick("#toc-toggle", 0, 600, 500);
-  await pick("#toc-pin", 0, 500, 1100);
-  await moveTo("#root h1", 0, 700);
-  await scrollTo("#text-and-emphasis", 1300);
-  await hold(700);
-  await scrollTo("#callouts-obsidian-style", 1300);
-  await hold(700);
-  await scrollTo("#math", 1300);
-  await hold(1000);
-
-  // 3. The headings as a mind map.
-  await caption("See your headings as a mind map");
-  await pick("#toc-mindmap", 0, 700, 1100);
-  // Fold a branch, then open it again.
-  await moveTo("#diagram-viewer .mm-fold", 1, 700);
-  await press("#diagram-viewer .mm-fold", 1, 900);
-  await moveTo("#diagram-viewer .mm-fold", 1, 300);
-  await press("#diagram-viewer .mm-fold", 1, 900);
-  // Click a heading to go there.
-  await moveTo("#diagram-viewer .mm-node", 4, 700);
-  await hold(400);
-  await press("#diagram-viewer .mm-node", 4, 1300);
+  // 5. The mind map of an Arabic note.
+  await showPage(windowPage({ width, height, src: arabic.replace("&pin", ""), light: true, title: "Arabic.md", cursor: true }));
+  await evaluate(DEMO_HELPERS + `demo.cursor(${width * 0.5}, ${height * 0.5});`);
+  await caption("Outline and mind map in Arabic too");
+  await pick("#toc-toggle", 0, 600, 700);
+  await pick("#toc-mindmap", 0, 600, 1800);
+  await moveTo("#diagram-viewer .mm-node", 2, 700);
+  await press("#diagram-viewer .mm-node", 2, 1300);
   await hold(800);
 
   await caption("Lectern: Markdown Reader · free on the VS Code Marketplace and Open VSX");
   await hold(2800);
+  void settle;
 
   mkdirSync("out/features", { recursive: true });
   encode("out/features/lectern-new-features.mp4", { video: true });

@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <img src="images/screenshots/demo.gif" alt="Lectern in action: opening the outline, unfolding a callout, ticking a task, opening a diagram full screen and zooming in, then switching palettes and fonts while pie, mind map, timeline and git diagrams redraw in each palette">
+  <img src="images/screenshots/demo.gif" alt="Lectern in action: opening the outline, unfolding a callout, ticking a task, opening a diagram full screen and zooming in, then switching palettes and fonts while pie, mind map, timeline and git diagrams redraw in each palette, and ending on an Arabic section that reads right to left">
 </p>
 
 VS Code's built-in preview is made for checking Markdown while you write it. **Lectern is
@@ -194,6 +194,38 @@ setting to change. A sentence that starts with an English name, like
 "React مكتبة لبناء الواجهات", still counts as Arabic, because most of its letters are.
 Bullets, quote bars, callouts and the outline move to the right side with the text.
 Code, math and diagrams always stay left to right.
+
+<p align="center">
+  <img src="images/screenshots/rtl.png" alt="An Arabic note about React in the Sepia palette. The outline is pinned on the left with the Arabic headings aligned to the right. The title, paragraphs, bullet list, numbered list, tasks and a tip callout all read right to left, while inline code such as npm install react stays left to right.">
+</p>
+
+You don't need to do anything special. Write Arabic as you normally would:
+
+```markdown
+## الأفكار الأساسية
+
+React مكتبة لبناء واجهات المستخدم. لتثبيتها اكتب `npm install react`.
+
+- [x] قراءة الدليل الرسمي
+- [ ] كتابة مكوّن صغير
+
+> [!tip] نصيحة
+> اجعل كل مكوّن صغيرًا ويقوم بعمل واحد فقط.
+```
+
+Arabic and English can sit in the same note. Each part reads in its own direction:
+
+<p align="center">
+  <img src="images/screenshots/rtl-mixed.png" alt="An English section followed by an Arabic example in the Light palette. The English paragraph reads left to right. Below it, the Arabic heading, paragraph, list with ticked and open tasks, a tip callout with the formula E equals m c squared, and a table of Arabic, Persian and Urdu greetings all read right to left.">
+</p>
+
+Diffs work too. The changed Arabic words are marked, and the change bars move to the right:
+
+<p align="center">
+  <img src="images/screenshots/rtl-diff.png" alt="A diff of an Arabic trip plan, side by side. Left, the old version: the words Lisbon and 12 marked in red, a removed paragraph about the hotel, and the train tickets task not ticked. Right, the new version: Porto and 14 marked in green, a new tip callout about getting there, the train tickets task ticked with a ring, and a new task.">
+</p>
+
+Try it with [sample/notes/Arabic.md](sample/notes/Arabic.md).
 
 ### Make it yours
 
